@@ -1,0 +1,222 @@
+import React from 'react';
+import { usePermissions } from '../hooks/usePermissions';
+
+export function Dashboard() {
+  const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } = usePermissions();
+
+  // Basic Member Stats
+  const baseStats: { label: string; value: string; change: string; icon: string; color: string; bg: string; unit?: string }[] = [
+    { label: 'My Tasks', value: '12', change: '+2%', icon: 'assignment', color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'High Priority', value: '3', change: '-10%', icon: 'priority_high', color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  ];
+
+  // Additional Admin/Owner Stats
+  const advancedStats: { label: string; value: string; change: string; icon: string; color: string; bg: string; unit?: string }[] = [
+    { label: 'Team Velocity', value: '24', change: '+15%', icon: 'bolt', color: 'text-indigo-400', bg: 'bg-indigo-400/10', unit: 'pts' },
+    { label: 'Total Issues', value: '142', change: '+5%', icon: 'confirmation_number', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  ];
+
+  const statsToRender = canInviteMembers ? [...baseStats, ...advancedStats] : baseStats;
+
+  return (
+    <div className="space-y-8">
+      {/* Role Banner */}
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-100 dark:bg-card-dark border border-slate-200 dark:border-slate-800">
+        <span className={`material-symbols-outlined text-xl ${isOwner ? 'text-primary' : isAdmin ? 'text-emerald-500' : isViewer ? 'text-blue-400' : 'text-slate-400'}`}>
+          {isOwner ? 'stars' : isAdmin ? 'admin_panel_settings' : isViewer ? 'visibility' : 'badge'}
+        </span>
+        <div>
+          <h2 className="text-sm font-bold tracking-tight">Welcome back, {role.charAt(0) + role.slice(1).toLowerCase()}</h2>
+          <p className="text-xs text-slate-500">
+            {isOwner && "You have full control over the workspace, including billing and security."}
+            {isAdmin && "You can manage projects, invite users, and oversee all workspace operations."}
+            {isMember && "Here is your issue overview and recent activity."}
+            {isViewer && "You have read-only access to this workspace's projects and issues."}
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Summary Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsToRender.map((stat) => (
+          <div key={stat.label} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-slate-500 text-sm font-medium">{stat.label}</span>
+              <span className={`material-symbols-outlined ${stat.color} ${stat.bg} p-1.5 rounded-lg`}>{stat.icon}</span>
+            </div>
+            <div className="flex items-end gap-2">
+              <p className="text-3xl font-bold">{stat.value} {stat.unit && <span className="text-lg font-normal text-slate-500">{stat.unit}</span>}</p>
+              <span className={`${stat.change.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'} text-xs font-semibold mb-1.5`}>{stat.change}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Role-Specific Feature Modules */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Main Feed/Lists */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Owner Exclusives: Audit Logs */}
+          {canViewAuditLogs && (
+            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+              <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl">policy</span>
+                  <h2 className="text-lg font-bold">Recent Audit Logs</h2>
+                </div>
+                <button className="text-xs text-primary font-medium hover:underline">View Security Center</button>
+              </div>
+              <div className="p-6">
+                <ul className="text-sm space-y-4">
+                  <li className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">Sarah Chen <span className="text-slate-500 font-normal">was promoted to Admin by</span> Alex Rivera</p>
+                      <p className="text-xs text-slate-400 mt-0.5">March 14, 10:23 AM (IP: 192.168.1.1)</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">Organization Security <span className="text-slate-500 font-normal">updated: Enforced 2FA</span></p>
+                      <p className="text-xs text-slate-400 mt-0.5">March 12, 14:10 PM</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Admin Exclusives: Pending Invites */}
+          {isAdmin && !isOwner && (
+             <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+             <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+               <div className="flex items-center gap-2">
+                 <span className="material-symbols-outlined text-emerald-500 text-xl">mail</span>
+                 <h2 className="text-lg font-bold">Pending Invitations</h2>
+               </div>
+               <button className="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-md font-medium hover:bg-emerald-600 transition-colors">Invite Team</button>
+             </div>
+             <div className="p-6">
+               <ul className="text-sm space-y-4">
+                 <li className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                   <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">JW</div>
+                      <div>
+                        <p className="font-medium">jordan.wu@external.com</p>
+                        <p className="text-xs text-amber-500">Pending Acceptance</p>
+                      </div>
+                   </div>
+                   <button className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors">Resend</button>
+                 </li>
+               </ul>
+             </div>
+           </div>
+          )}
+
+          {/* Activity Feed (Visible to all) */}
+          <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Activity Feed</h2>
+              <button className="text-xs text-primary font-medium">View all</button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
+                {/* Activity Item 1 */}
+                <div className="relative pl-10 pb-8">
+                  <div className="absolute left-0 top-0 size-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center z-10">
+                    <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-primary font-medium">IF-102</span>
+                      <p className="text-sm font-medium">Bug fix deployed by <span className="text-primary cursor-pointer">Alex Rivera</span></p>
+                    </div>
+                    <p className="text-xs text-slate-500">Fixed race condition in workspace switcher initialization</p>
+                    <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">2 minutes ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Side Cards */}
+        <div className="space-y-8">
+          
+          {/* Owner Exclusives: Billing */}
+          {canManageBilling && (
+            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">credit_card</span>
+                Billing Dashboard
+              </h3>
+              <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-4">
+                <p className="text-emerald-600 dark:text-emerald-400 font-bold">Enterprise Plan</p>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-slate-600 dark:text-slate-400">Total Seats</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">12 / 50</span>
+                </div>
+              </div>
+              <button className="w-full text-center text-sm font-semibold text-primary hover:text-primary/80 transition-colors">Manage Subscription & Invoices</button>
+            </div>
+          )}
+
+          {/* Admin & Owner: Team Management Shortcuts */}
+          {canInviteMembers && (
+            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">folder_managed</span>
+                Workspace Control
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#" className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-base">domain_add</span> Create New Project
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-base">group_add</span> Invite Members
+                  </a>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* All Roles: Quick Links */}
+          <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-6 shadow-sm">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Quick Resources</h3>
+            <ul className="space-y-3">
+              {[
+                { label: 'Documentation', icon: 'menu_book' },
+                { label: 'My Assigned Issues', icon: 'assignment_ind' },
+                { label: 'API Tokens', icon: 'api' },
+              ].map((link) => (
+                <li key={link.label}>
+                  <a href="#" className="text-sm flex items-center gap-2 hover:underline decoration-primary">
+                    <span className="material-symbols-outlined text-base">{link.icon}</span>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Owner Exclusives: Danger Zone */}
+          {isOwner && (
+            <div className="bg-rose-500/5 rounded-xl border border-rose-500/20 p-6 shadow-sm">
+               <h3 className="text-sm font-bold uppercase tracking-wider text-rose-500 mb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">warning</span>
+                Danger Zone
+              </h3>
+              <p className="text-xs text-rose-600/70 mb-4 leading-relaxed">Permanently delete this organization, along with all projects, issues, and users.</p>
+              <button className="text-xs font-semibold bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition-colors w-full">Delete Workspace</button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
