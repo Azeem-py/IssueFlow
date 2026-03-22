@@ -13,4 +13,9 @@ export class CreateProjectDto implements CreateProjectInput {
   @IsNotEmpty()
   @MaxLength(5)
   key!: string;
+
+  @ApiProperty({ example: 'https://cloudinary.com/logo.png', required: false })
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
 }

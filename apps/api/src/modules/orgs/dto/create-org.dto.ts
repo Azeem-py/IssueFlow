@@ -13,4 +13,9 @@ export class CreateOrgDto implements CreateOrgInput {
   @IsNotEmpty()
   @Matches(/^[a-z0-9-]+$/, { message: 'Slug must be lowercase and contain only alphanumeric characters and hyphens' })
   slug!: string;
+
+  @ApiProperty({ example: 'https://cloudinary.com/logo.png', required: false })
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
 }

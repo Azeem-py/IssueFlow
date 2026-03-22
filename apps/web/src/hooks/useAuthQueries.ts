@@ -67,7 +67,7 @@ export function useAuthQueries() {
 
   // Create organization mutation
   const createOrganizationMutation = useMutation({
-    mutationFn: async (orgData: { name: string; slug: string }) => {
+    mutationFn: async (orgData: { name: string; slug: string; logoUrl?: string }) => {
       const { data } = await api.post('/organizations', orgData);
       return data;
     },
@@ -76,10 +76,22 @@ export function useAuthQueries() {
     },
   });
 
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (profileData: { name?: string; avatarUrl?: string }) => {
+      const { data } = await api.post('/auth/me', profileData);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+
   return {
     useMe,
     useOrganizations,
     createOrganization: createOrganizationMutation,
+    updateProfile: updateProfileMutation,
     login: loginMutation,
     register: registerMutation,
     logout: logoutMutation,

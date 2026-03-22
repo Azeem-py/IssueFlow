@@ -63,7 +63,18 @@ export class AuthService {
 
     return {
       access_token,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     };
+  }
+
+  async updateProfile(userId: string, data: { name?: string; avatarUrl?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.avatarUrl && { avatarUrl: data.avatarUrl }),
+      },
+      select: { id: true, email: true, name: true, avatarUrl: true }
+    });
   }
 }

@@ -28,12 +28,14 @@ export interface IUser {
   id: string;
   email: string;
   name?: string;
+  avatarUrl?: string;
 }
 
 export interface IOrganization {
   id: string;
   name: string;
   slug: string;
+  logoUrl?: string;
 }
 
 export interface IProject {
@@ -41,6 +43,7 @@ export interface IProject {
   name: string;
   key: string;
   organizationId: string;
+  logoUrl?: string;
 }
 
 export interface IIssue {
@@ -77,11 +80,13 @@ export interface LoginInput {
 export interface CreateOrgInput {
   name: string;
   slug: string;
+  logoUrl?: string;
 }
 
 export interface CreateProjectInput {
   name: string;
   key: string;
+  logoUrl?: string;
 }
 
 export interface CreateIssueInput {

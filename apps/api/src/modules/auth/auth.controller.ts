@@ -42,4 +42,11 @@ export class AuthController {
   getMe(@CurrentUser() user: any) {
     return user;
   }
+
+  @ApiBearerAuth()
+  @Post('me')
+  @ApiOperation({ summary: 'Update profile info' })
+  async updateProfile(@CurrentUser() user: any, @Body() body: { name?: string; avatarUrl?: string }) {
+    return this.authService.updateProfile(user.id, body);
+  }
 }

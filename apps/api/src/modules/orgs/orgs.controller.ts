@@ -29,7 +29,7 @@ export class OrgsController {
   @Post()
   @ApiOperation({ summary: 'Create a new organization' })
   create(@Body() dto: CreateOrgDto, @CurrentUser() user: any) {
-    return this.orgsService.createOrg(dto.name, dto.slug, user.id);
+    return this.orgsService.createOrg(dto.name, dto.slug, user.id, dto.logoUrl);
   }
 
   @Get()
@@ -56,7 +56,7 @@ export class OrgsController {
     @Param() params: OrgParamsDto,
     @Body() dto: CreateProjectDto
   ) {
-    return this.orgsService.createProject(params.id, dto.name, dto.key);
+    return this.orgsService.createProject(params.id, dto.name, dto.key, dto.logoUrl);
   }
 
   @Get(':id/projects')

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class OrgsService {
   constructor(private prisma: PrismaService) {}
 
-  async createOrg(name: string, slug: string, userId: string) {
+  async createOrg(name: string, slug: string, userId: string, logoUrl?: string) {
     const existing = await this.prisma.organization.findUnique({ where: { slug } });
     if (existing) throw new BadRequestException('Slug already taken');
 
@@ -13,6 +13,7 @@ export class OrgsService {
       data: {
         name,
         slug,
+        logoUrl,
         members: {
           create: {
             userId,
@@ -45,7 +46,7 @@ export class OrgsService {
     });
   }
 
-  async createProject(orgId: string, name: string, key: string) {
+  async createProject(orgId: string, name: string, key: string, logoUrl?: string) {
     const existing = await this.prisma.project.findUnique({
       where: { organizationId_key: { organizationId: orgId, key } },
     });
@@ -56,6 +57,7 @@ export class OrgsService {
         name,
         key: key.toUpperCase(),
         organizationId: orgId,
+        logoUrl,
       },
     });
   }
