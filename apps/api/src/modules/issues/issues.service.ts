@@ -1,10 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IssueSequenceService } from './issue-sequence.service';
 import { CreateIssueInput, SearchFilters, CreateCommentInput } from '@issueflow/types';
 
 @Injectable()
 export class IssuesService {
+  private readonly logger = new Logger(IssuesService.name);
+
   constructor(
     private prisma: PrismaService,
     private sequenceService: IssueSequenceService
@@ -13,6 +15,7 @@ export class IssuesService {
   async createIssue(dto: CreateIssueInput, authorId: string) {
     // Atomic sequential numbering
     const shortId = await this.sequenceService.getNextShortId(dto.projectId);
+    this.logger.log(`Creating issue ${shortId} in project ${dto.projectId} by user ${authorId}`);
 
     return this.prisma.issue.create({
       data: {
@@ -41,9 +44,9 @@ export class IssuesService {
       },
       orderBy: { createdAt: 'desc' },
       include: { 
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         project: { select: { id: true, name: true, key: true } },
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true, avatarUrl: true } }
       },
     });
   }
@@ -52,9 +55,9 @@ export class IssuesService {
     const issue = await this.prisma.issue.findUnique({
       where: { id: issueId, deletedAt: null },
       include: {
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         project: { select: { id: true, name: true, key: true } },
-        assignee: { select: { id: true, name: true, email: true } },
+        assignee: { select: { id: true, name: true, email: true, avatarUrl: true } },
         _count: { select: { comments: true } }
       }
     });
@@ -93,6 +96,8 @@ export class IssuesService {
 
     if (!issue) throw new NotFoundException('Issue not found');
 
+    this.logger.log(`Adding comment to issue ${dto.issueId} by user ${authorId}`);
+
     return this.prisma.comment.create({
       data: {
         content: dto.content,
@@ -101,7 +106,7 @@ export class IssuesService {
         parentId: dto.parentId,
       },
       include: {
-        author: { select: { id: true, name: true, email: true } }
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } }
       }
     });
   }
@@ -113,7 +118,7 @@ export class IssuesService {
       where: { issueId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
       include: {
-        author: { select: { id: true, name: true, email: true } }
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } }
       }
     });
 

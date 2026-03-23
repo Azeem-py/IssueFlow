@@ -5,7 +5,7 @@ import { CreateInviteInput, UserRole } from '@issueflow/types';
 
 export function useOrgQueries() {
   const queryClient = useQueryClient();
-  const { currentOrg } = useAuth();
+  const { currentOrg, refreshUser } = useAuth();
 
   // Get organization members
   const useMembers = () => useQuery<any[]>({
@@ -16,9 +16,10 @@ export function useOrgQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Get pending invitations
+  // Get pending invitations (sent by this org)
   const useInvites = () => useQuery<any[]>({
     queryKey: ['org-invites', currentOrg?.id],
     queryFn: async () => {
@@ -27,9 +28,20 @@ export function useOrgQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Create invitation mutation
+  // Get invitations sent TO the current user
+  const useMyInvites = () => useQuery<any[]>({
+    queryKey: ['my-invites'],
+    queryFn: async () => {
+      const { data } = await api.get('/organizations/invites/my');
+      return data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Create invitation mutation (sent by user)
   const createInviteMutation = useMutation({
     mutationFn: async (inviteData: CreateInviteInput) => {
       if (!currentOrg?.id) throw new Error('No active organization');
@@ -53,10 +65,63 @@ export function useOrgQueries() {
     },
   });
 
+  // Revoke invitation mutation (cancel sent invite)
+  const revokeInviteMutation = useMutation({
+    mutationFn: async (inviteId: string) => {
+      if (!currentOrg?.id) throw new Error('No active organization');
+      const { data } = await api.delete(`/organizations/${currentOrg.id}/invites/${inviteId}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-invites', currentOrg?.id] });
+    },
+  });
+
+  // Remove member mutation
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      if (!currentOrg?.id) throw new Error('No active organization');
+      const { data } = await api.delete(`/organizations/${currentOrg.id}/members/${memberId}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-members', currentOrg?.id] });
+    },
+  });
+
+  // Accept invitation mutation (received invite)
+  const acceptInviteMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const { data } = await api.post('/organizations/invites/accept', { token });
+      return data;
+    },
+    onSuccess: async () => {
+      await refreshUser();
+      queryClient.invalidateQueries({ queryKey: ['my-invites'] });
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    },
+  });
+
+  // Decline invitation mutation (received invite)
+  const declineInviteMutation = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { data } = await api.post(`/organizations/invites/${inviteId}/decline`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-invites'] });
+    },
+  });
+
   return {
     useMembers,
     useInvites,
+    useMyInvites,
     createInvite: createInviteMutation,
     updateMemberRole: updateMemberRoleMutation,
+    revokeInvite: revokeInviteMutation,
+    removeMember: removeMemberMutation,
+    acceptInvite: acceptInviteMutation,
+    declineInvite: declineInviteMutation,
   };
 }

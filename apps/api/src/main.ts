@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
   
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -27,6 +28,7 @@ async function bootstrap() {
   const port = 3000;
   await app.listen(port);
   
+  const logger = app.get(Logger);
   logger.log(`🚀 Application is running on: http://localhost:${port}`);
   logger.log(`📜 Swagger documentation: http://localhost:${port}/api/docs`);
 }

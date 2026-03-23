@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useProjectQueries } from '../hooks/useProjectQueries';
 import { useIssueQueries } from '../hooks/useIssueQueries';
+import { useOrgQueries } from '../hooks/useOrgQueries';
 import { useAuth } from '../contexts/AuthContext';
 import { IssueStatus, IssuePriority } from '@issueflow/types';
 
@@ -11,8 +12,8 @@ const issueSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   projectId: z.string().min(1, 'Project is required'),
-  priority: z.nativeEnum(IssuePriority).default(IssuePriority.MEDIUM),
-  status: z.nativeEnum(IssueStatus).default(IssueStatus.BACKLOG),
+  priority: z.nativeEnum(IssuePriority),
+  status: z.nativeEnum(IssueStatus),
   assigneeId: z.string().optional(),
 });
 
@@ -22,19 +23,23 @@ interface QuickAddModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialStatus?: IssueStatus;
+  initialProjectId?: string;
 }
 
-export function QuickAddModal({ isOpen, onClose, initialStatus }: QuickAddModalProps) {
+export function QuickAddModal({ isOpen, onClose, initialStatus, initialProjectId }: QuickAddModalProps) {
   const { currentOrg } = useAuth();
   const { useProjects } = useProjectQueries();
   const { data: projects } = useProjects();
   const { createIssue } = useIssueQueries();
+  const { useMembers } = useOrgQueries();
+  const { data: members } = useMembers();
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, watch } = useForm<IssueFormValues>({
     resolver: zodResolver(issueSchema),
     defaultValues: {
       status: initialStatus || IssueStatus.BACKLOG,
       priority: IssuePriority.MEDIUM,
+      projectId: initialProjectId || '',
     }
   });
 
@@ -45,13 +50,20 @@ export function QuickAddModal({ isOpen, onClose, initialStatus }: QuickAddModalP
   }, [initialStatus, setValue]);
 
   useEffect(() => {
+    if (initialProjectId) {
+      setValue('projectId', initialProjectId);
+    }
+  }, [initialProjectId, setValue]);
+
+  useEffect(() => {
     if (isOpen) {
       reset({
         status: initialStatus || IssueStatus.BACKLOG,
         priority: IssuePriority.MEDIUM,
+        projectId: initialProjectId || '',
       });
     }
-  }, [isOpen, reset, initialStatus]);
+  }, [isOpen, reset, initialStatus, initialProjectId]);
 
   const onSubmit = async (values: IssueFormValues) => {
     if (!currentOrg?.id) return;
@@ -174,7 +186,11 @@ export function QuickAddModal({ isOpen, onClose, initialStatus }: QuickAddModalP
                   className="w-full bg-slate-50 dark:bg-[#111022] border border-slate-200 dark:border-[#333267] rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all cursor-pointer text-slate-900 dark:text-slate-100"
                 >
                   <option value="">Unassigned</option>
-                  {/* We could fetch team members here if needed */}
+                  {members?.map(member => (
+                    <option key={member.user.id} value={member.user.id}>
+                      {member.user.name || member.user.email}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

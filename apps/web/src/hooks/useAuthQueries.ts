@@ -4,14 +4,15 @@ import { UserRole } from '@issueflow/types';
 
 export function useAuthQueries() {
   const queryClient = useQueryClient();
-
-  // Get current user profile
-  const useMe = () => useQuery({
-    queryKey: ['me'],
-    queryFn: async () => {
-      const { data } = await api.get('/auth/me');
-      return data;
-    },
+// Get current user
+const useMe = () => useQuery<IUser>({
+  queryKey: ['me'],
+  queryFn: async () => {
+    const { data } = await api.get('/auth/me');
+    return data;
+  },
+  staleTime: 1000 * 60 * 5, // 5 minutes
+});
     retry: false,
   });
 
@@ -19,9 +20,6 @@ export function useAuthQueries() {
   const loginMutation = useMutation({
     mutationFn: async (credentials: any) => {
       const { data } = await api.post('/auth/login', credentials);
-      if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token);
-      }
       return data;
     },
     onSuccess: () => {
@@ -33,9 +31,6 @@ export function useAuthQueries() {
   const registerMutation = useMutation({
     mutationFn: async (userData: any) => {
       const { data } = await api.post('/auth/register', userData);
-      if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token);
-      }
       return data;
     },
     onSuccess: () => {
@@ -47,7 +42,6 @@ export function useAuthQueries() {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const { data } = await api.post('/auth/logout');
-      localStorage.removeItem('access_token');
       return data;
     },
     onSuccess: () => {
@@ -87,6 +81,22 @@ export function useAuthQueries() {
     },
   });
 
+  // Forgot Password mutation
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const { data } = await api.post('/auth/forgot-password', { email });
+      return data;
+    },
+  });
+
+  // Reset Password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (resetData: any) => {
+      const { data } = await api.post('/auth/reset-password', resetData);
+      return data;
+    },
+  });
+
   return {
     useMe,
     useOrganizations,
@@ -95,5 +105,7 @@ export function useAuthQueries() {
     login: loginMutation,
     register: registerMutation,
     logout: logoutMutation,
+    forgotPassword: forgotPasswordMutation,
+    resetPassword: resetPasswordMutation,
   };
 }

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { useProjectQueries } from '../hooks/useProjectQueries';
@@ -16,9 +17,10 @@ const COLORS = [
 export function Projects() {
   const { currentOrg } = useAuth();
   const { canManageProjects } = usePermissions();
-  const { useProjects, createProject } = useProjectQueries();
+  const { useProjects, createProject, updateProject, deleteProject } = useProjectQueries();
   const { data: projects, isLoading } = useProjects();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
   
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
@@ -27,6 +29,23 @@ export function Projects() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleOpenEdit = (project: any) => {
+    setEditingProject(project);
+    setName(project.name);
+    setKey(project.key);
+    setLogoPreview(project.logoUrl || '');
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingProject(null);
+    setName('');
+    setKey('');
+    setLogoFile(null);
+    setLogoPreview('');
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -34,24 +53,44 @@ export function Projects() {
     setLogoPreview(URL.createObjectURL(file));
   };
 
-  const handleCreateProject = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      let uploadedLogoUrl = '';
+      let uploadedLogoUrl = logoPreview;
       if (logoFile) {
         uploadedLogoUrl = await uploadToCloudinary(logoFile);
       }
 
-      await createProject.mutateAsync({ name, key, logoUrl: uploadedLogoUrl || undefined });
+      if (editingProject) {
+        await updateProject.mutateAsync({ 
+          id: editingProject.id, 
+          name, 
+          key, 
+          logoUrl: uploadedLogoUrl || undefined 
+        });
+      } else {
+        await createProject.mutateAsync({ name, key, logoUrl: uploadedLogoUrl || undefined });
+      }
       
-      setIsModalOpen(false);
-      setName('');
-      setKey('');
-      setLogoFile(null);
-      setLogoPreview('');
+      handleCloseModal();
     } catch (error) {
-      console.error('Failed to create project', error);
+      console.error('Failed to save project', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingProject) return;
+    if (!window.confirm('Are you sure you want to delete this project? This will soft-delete the project.')) return;
+    
+    setIsSubmitting(true);
+    try {
+      await deleteProject.mutateAsync(editingProject.id);
+      handleCloseModal();
+    } catch (error) {
+      console.error('Failed to delete project', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +139,11 @@ export function Projects() {
       {projects && projects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {projects.map((project, index) => (
-            <div key={project.id} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-[2rem] p-8 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group relative overflow-hidden">
+            <Link 
+              key={project.id} 
+              to={`/projects/${project.id}`}
+              className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-[2rem] p-8 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group relative overflow-hidden block text-left"
+            >
               <div className="flex items-start justify-between mb-8">
                 {project.logoUrl ? (
                   <div className="size-14 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -111,7 +154,14 @@ export function Projects() {
                     <span className="font-black text-lg tracking-tighter">{project.key}</span>
                   </div>
                 )}
-                <button className="size-8 flex items-center justify-center text-slate-300 hover:text-primary hover:bg-primary/5 rounded-full transition-all">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleOpenEdit(project);
+                  }}
+                  className="size-8 flex items-center justify-center text-slate-300 hover:text-primary hover:bg-primary/5 rounded-full transition-all"
+                >
                   <span className="material-symbols-outlined text-xl">settings</span>
                 </button>
               </div>
@@ -127,14 +177,40 @@ export function Projects() {
                   Board View
                 </div>
                 <div className="flex -space-x-2">
-                   {[1, 2, 3].map(i => (
-                     <div key={i} className="size-6 rounded-full border-2 border-white dark:border-card-dark bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-400">
-                        U
-                     </div>
-                   ))}
+                   {(() => {
+                     const assignees = Array.from(new Set(
+                       project.issues
+                         ?.map((i: any) => i.assignee)
+                         .filter(Boolean)
+                         .map((a: any) => JSON.stringify(a))
+                     )).map((a: any) => JSON.parse(a)).slice(0, 3);
+
+                     if (assignees.length === 0) {
+                        return (
+                          <div className="size-6 rounded-full border-2 border-white dark:border-card-dark bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                             N/A
+                          </div>
+                        );
+                     }
+
+                     return assignees.map((assignee: any) => (
+                       assignee.avatarUrl ? (
+                         <img 
+                           key={assignee.id} 
+                           src={assignee.avatarUrl} 
+                           alt={assignee.name} 
+                           className="size-6 rounded-full border-2 border-white dark:border-card-dark object-cover" 
+                         />
+                       ) : (
+                         <div key={assignee.id} className="size-6 rounded-full border-2 border-white dark:border-card-dark bg-primary/20 flex items-center justify-center text-[8px] font-bold text-primary">
+                            {assignee.name?.charAt(0) || '?'}
+                         </div>
+                       )
+                     ));
+                   })()}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
           
           {canManageProjects && (
@@ -175,7 +251,7 @@ export function Projects() {
         </div>
       )}
 
-      {/* New Project Modal */}
+      {/* New/Edit Project Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white dark:bg-card-dark rounded-[2rem] shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
@@ -184,13 +260,13 @@ export function Projects() {
                  <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                     <span className="material-symbols-outlined text-xl">tactic</span>
                  </div>
-                 <h2 className="text-xl font-black tracking-tight">New Project</h2>
+                 <h2 className="text-xl font-black tracking-tight">{editingProject ? 'Edit Project' : 'New Project'}</h2>
                </div>
-              <button onClick={() => setIsModalOpen(false)} className="size-8 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 transition-colors">
+              <button onClick={handleCloseModal} className="size-8 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 transition-colors">
                 <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
-            <form onSubmit={handleCreateProject} className="p-10 space-y-8">
+            <form onSubmit={handleSubmit} className="p-10 space-y-8">
               {/* Logo Upload */}
               <div className="flex flex-col items-center gap-4">
                  <div 
@@ -242,26 +318,39 @@ export function Projects() {
                   />
                 </div>
               </div>
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-6 py-4 rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-widest"
-                >
-                  Discard
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting || !name || !key}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-4 rounded-2xl font-black transition-all disabled:opacity-50 text-xs uppercase tracking-widest shadow-xl shadow-primary/25"
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center justify-center gap-2">
-                       <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                       <span>{logoFile ? 'Uploading...' : 'Launching...'}</span>
-                    </div>
-                  ) : 'Create Project'}
-                </button>
+              <div className="flex flex-col gap-4 pt-4">
+                <div className="flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 px-6 py-4 rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-widest"
+                  >
+                    Discard
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting || !name || !key}
+                    className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-4 rounded-2xl font-black transition-all disabled:opacity-50 text-xs uppercase tracking-widest shadow-xl shadow-primary/25"
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center justify-center gap-2">
+                         <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                         <span>{logoFile ? 'Uploading...' : 'Saving...'}</span>
+                      </div>
+                    ) : (editingProject ? 'Save Changes' : 'Create Project')}
+                  </button>
+                </div>
+                {editingProject && (
+                  <button 
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isSubmitting}
+                    className="w-full px-6 py-3 rounded-2xl font-black text-rose-500 hover:bg-rose-500/10 transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">delete</span>
+                    Delete Project
+                  </button>
+                )}
               </div>
             </form>
           </div>

@@ -19,6 +19,7 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Create issue mutation
@@ -70,6 +71,7 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!id && !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Get comments for an issue
@@ -82,6 +84,7 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!issueId && !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Add comment mutation

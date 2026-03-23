@@ -16,6 +16,18 @@ export function useProjectQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Get a single project
+  const useProject = (projectId?: string) => useQuery<IProject>({
+    queryKey: ['projects', currentOrg?.id, projectId],
+    queryFn: async () => {
+      const { data } = await api.get(`/organizations/${currentOrg?.id}/projects/${projectId}`);
+      return data;
+    },
+    enabled: !!currentOrg?.id && !!projectId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Create project mutation
@@ -30,8 +42,35 @@ export function useProjectQueries() {
     },
   });
 
+  // Update project mutation
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ id, ...projectData }: { id: string } & CreateProjectInput) => {
+      if (!currentOrg?.id) throw new Error('No active organization');
+      const { data } = await api.post(`/organizations/${currentOrg.id}/projects/${id}`, projectData);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', currentOrg?.id] });
+    },
+  });
+
+  // Delete project mutation
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!currentOrg?.id) throw new Error('No active organization');
+      const { data } = await api.delete(`/organizations/${currentOrg.id}/projects/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', currentOrg?.id] });
+    },
+  });
+
   return {
     useProjects,
+    useProject,
     createProject: createProjectMutation,
+    updateProject: updateProjectMutation,
+    deleteProject: deleteProjectMutation,
   };
 }

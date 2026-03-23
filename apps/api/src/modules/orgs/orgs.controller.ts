@@ -66,6 +66,39 @@ export class OrgsController {
     return this.orgsService.getProjects(params.id);
   }
 
+  @Get(':id/projects/:projectId')
+  @UseGuards(OrgMemberGuard)
+  @ApiOperation({ summary: 'Get a specific project' })
+  getProject(
+    @Param('id') orgId: string,
+    @Param('projectId') projectId: string
+  ) {
+    return this.orgsService.getProject(orgId, projectId);
+  }
+
+  @Post(':id/projects/:projectId')
+  @UseGuards(OrgMemberGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update a project (Admin/Owner only)' })
+  updateProject(
+    @Param('id') orgId: string,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateProjectDto
+  ) {
+    return this.orgsService.updateProject(orgId, projectId, dto);
+  }
+
+  @Delete(':id/projects/:projectId')
+  @UseGuards(OrgMemberGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete a project (Admin/Owner only)' })
+  deleteProject(
+    @Param('id') orgId: string,
+    @Param('projectId') projectId: string
+  ) {
+    return this.orgsService.deleteProject(orgId, projectId);
+  }
+
   // --- Invitations ---
 
   @Post(':id/invites')
@@ -87,7 +120,30 @@ export class OrgsController {
     return this.invitesService.getInvites(params.id);
   }
 
-  @Public()
+  @Get('invites/my')
+  @ApiOperation({ summary: 'Get invitations received by the current user' })
+  getMyInvitations(@CurrentUser() user: any) {
+    return this.invitesService.getMyInvitations(user.email);
+  }
+
+  @Delete(':id/invites/:inviteId')
+  @UseGuards(OrgMemberGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Revoke an invitation (Admin/Owner only)' })
+  revokeInvite(
+    @Param('id') orgId: string,
+    @Param('inviteId') inviteId: string
+  ) {
+    return this.invitesService.revokeInvite(orgId, inviteId);
+  }
+
+  @Post('invites/:inviteId/decline')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Decline an invitation' })
+  declineInvitation(@Param('inviteId') inviteId: string, @CurrentUser() user: any) {
+    return this.invitesService.declineInvite(inviteId, user.email);
+  }
+
   @Post('invites/accept')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept an invitation' })
@@ -113,6 +169,14 @@ export class OrgsController {
     @Body() dto: UpdateRoleDto
   ) {
     return this.orgsService.updateMemberRole(params.id, params.memberId, dto.role);
+  }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(OrgMemberGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Remove a member from the organization (Admin/Owner only)' })
+  removeMember(@Param() params: MemberUpdateParamsDto) {
+    return this.orgsService.removeMember(params.id, params.memberId);
   }
 
   @Post(':id/transfer-ownership')

@@ -51,7 +51,11 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
           {/* Avatar with Ring */}
           <div className="relative shrink-0">
             <div className={`size-8 md:size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold border-2 ${isAuthor ? 'border-primary/50' : 'border-transparent'} overflow-hidden shadow-sm`}>
-               {comment.author?.name?.charAt(0) || comment.author?.email?.charAt(0).toUpperCase()}
+               {comment.author?.avatarUrl ? (
+                 <img src={comment.author.avatarUrl} className="size-full object-cover" alt="" />
+               ) : (
+                 comment.author?.name?.charAt(0) || comment.author?.email?.charAt(0).toUpperCase()
+               )}
             </div>
             {isAuthor && (
               <div className="absolute -bottom-1 -right-1 size-4 bg-primary rounded-full border-2 border-white dark:border-background-dark flex items-center justify-center shadow-sm">
@@ -230,8 +234,12 @@ export function IssueDetails() {
           
           <div className="flex items-center justify-between py-2 border-y border-slate-100 dark:border-slate-800/50 mt-6">
             <div className="flex items-center gap-3">
-               <div className="size-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs">
-                 {((issue as any).author?.name || (issue as any).author?.email).charAt(0).toUpperCase()}
+               <div className="size-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                 {(issue as any).author?.avatarUrl ? (
+                   <img src={(issue as any).author.avatarUrl} className="size-full object-cover" alt="" />
+                 ) : (
+                   ((issue as any).author?.name || (issue as any).author?.email).charAt(0).toUpperCase()
+                 )}
                </div>
                <div>
                  <p className="text-xs font-bold">{(issue as any).author?.name || (issue as any).author?.email}</p>
@@ -309,8 +317,12 @@ export function IssueDetails() {
                 <h3 className="text-lg font-bold tracking-tight">Post a comment</h3>
               </div>
               <form onSubmit={handleAddComment} className="flex gap-4 group">
-                <div className="size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner">
-                  <span className="material-symbols-outlined text-xl">person</span>
+                <div className="size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} className="size-full object-cover" alt="" />
+                  ) : (
+                    <span className="material-symbols-outlined text-xl">person</span>
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-[1.25rem] overflow-hidden shadow-sm group-focus-within:border-primary/50 group-focus-within:ring-4 group-focus-within:ring-primary/5 transition-all duration-300">
@@ -391,8 +403,12 @@ export function IssueDetails() {
               <div className="flex items-center gap-3">
                 {(issue as any).assignee ? (
                   <>
-                    <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary border border-primary/20 shadow-sm">
-                      {(issue as any).assignee.name?.charAt(0) || (issue as any).assignee.email.charAt(0).toUpperCase()}
+                    <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary border border-primary/20 shadow-sm overflow-hidden">
+                      {(issue as any).assignee.avatarUrl ? (
+                        <img src={(issue as any).assignee.avatarUrl} className="size-full object-cover" alt="" />
+                      ) : (
+                        (issue as any).assignee.name?.charAt(0) || (issue as any).assignee.email.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-bold">{(issue as any).assignee.name || (issue as any).assignee.email}</p>

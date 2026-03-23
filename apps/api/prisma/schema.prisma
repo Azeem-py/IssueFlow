@@ -43,6 +43,10 @@ model User {
   assignedIssues Issue[]        @relation("AssignedIssues")
   sentInvitations Invitation[]
   comments       Comment[]
+  activityLogs   ActivityLog[]
+  resetOtp       String?
+  resetOtpExpires DateTime?
+  refreshToken   String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   deletedAt      DateTime?
@@ -59,6 +63,7 @@ model Organization {
   projects  Project[]
   issues    Issue[]
   invitations Invitation[]
+  activityLogs ActivityLog[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -161,4 +166,31 @@ model Comment {
   @@index([issueId])
   @@index([authorId])
   @@index([parentId])
+}
+
+enum ActivityAction {
+  ISSUE_CREATED
+  ISSUE_UPDATED
+  ISSUE_DELETED
+  COMMENT_ADDED
+  MEMBER_INVITED
+  MEMBER_JOINED
+  PROJECT_CREATED
+}
+
+model ActivityLog {
+  id             String         @id @default(uuid())
+  action         ActivityAction
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  issueId        String?
+  projectId      String?
+  metadata       Json?          // For storing details like "from TODO to DONE"
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([createdAt])
 }

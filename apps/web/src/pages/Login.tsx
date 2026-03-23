@@ -5,6 +5,7 @@ import { useAuthQueries } from '../hooks/useAuthQueries';
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuthQueries();
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export function Login() {
     setError('');
     
     try {
-      await login.mutateAsync({ email, password });
+      await login.mutateAsync({ email, password, rememberMe });
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
@@ -62,7 +63,7 @@ export function Login() {
             <div>
               <div className="flex items-center justify-between mb-2 ml-1">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Password</label>
-                <Link to="/forgot-password" className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider">Forgot password?</Link>
+                <Link to="/forgot-password" title="Coming soon!" className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider">Forgot password?</Link>
               </div>
               <div className="relative group">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">lock</span>
@@ -77,8 +78,22 @@ export function Login() {
               </div>
             </div>
 
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-800 bg-slate-900/50 text-primary focus:ring-primary/50 focus:ring-offset-0"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-xs font-bold text-slate-500 uppercase tracking-widest cursor-pointer">
+                Keep me logged in
+              </label>
+            </div>
+
             <button 
               type="submit" 
+
               disabled={login.isPending}
               className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:pointer-events-none"
             >

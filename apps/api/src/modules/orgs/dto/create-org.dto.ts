@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import { CreateOrgInput } from '@issueflow/types';
 
 export class CreateOrgDto implements CreateOrgInput {

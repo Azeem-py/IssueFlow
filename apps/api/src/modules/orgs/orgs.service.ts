@@ -64,14 +64,70 @@ export class OrgsService {
 
   async getProjects(orgId: string) {
     return this.prisma.project.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, deletedAt: null },
+      include: {
+        issues: {
+          select: {
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  async getProject(orgId: string, projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.organizationId !== orgId) {
+      throw new BadRequestException('Project not found in this organization');
+    }
+
+    return project;
+  }
+
+  async updateProject(orgId: string, projectId: string, data: { name?: string, key?: string, logoUrl?: string }) {
+    const project = await this.getProject(orgId, projectId);
+
+    if (data.key && data.key !== project.key) {
+      const existing = await this.prisma.project.findUnique({
+        where: { organizationId_key: { organizationId: orgId, key: data.key.toUpperCase() } },
+      });
+      if (existing) throw new BadRequestException('Project key already exists in this organization');
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.key && { key: data.key.toUpperCase() }),
+        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
+      },
+    });
+  }
+
+  async deleteProject(orgId: string, projectId: string) {
+    await this.getProject(orgId, projectId);
+    
+    // Soft delete if possible, but schema doesn't have deletedAt for Project in all places or maybe it does.
+    // Looking at schema.prisma: Project has deletedAt.
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: { deletedAt: new Date() },
     });
   }
 
   async getMembers(orgId: string) {
     return this.prisma.member.findMany({
       where: { organizationId: orgId, deletedAt: null },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
     });
   }
 
@@ -91,6 +147,26 @@ export class OrgsService {
     return this.prisma.member.update({
       where: { id: memberId },
       data: { role: newRole as any },
+    });
+  }
+
+  async removeMember(orgId: string, memberId: string) {
+    const member = await this.prisma.member.findUnique({
+      where: { id: memberId },
+    });
+
+    if (!member || member.organizationId !== orgId) {
+      throw new BadRequestException('Member not found in this organization');
+    }
+
+    if (member.role === 'OWNER') {
+      throw new BadRequestException('Cannot remove the owner of an organization.');
+    }
+
+    // Soft delete member
+    return this.prisma.member.update({
+      where: { id: memberId },
+      data: { deletedAt: new Date() },
     });
   }
 
