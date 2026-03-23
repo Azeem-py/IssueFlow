@@ -142,3 +142,35 @@ export interface CreateInviteInput {
 export interface AcceptInviteInput {
   token: string;
 }
+
+export interface IDashboardStat {
+  label: string;
+  value: string;
+  change: string;
+  icon: string;
+  color: string;
+  bg: string;
+  unit?: string;
+}
+
+export interface IDashboardStats {
+  baseStats: IDashboardStat[];
+  advancedStats: IDashboardStat[];
+}
+
+export interface IActivityLog {
+  id: string;
+  action: string;
+  organizationId: string;
+  userId: string;
+  issueId?: string;
+  projectId?: string;
+  metadata?: any;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
+}

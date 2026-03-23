@@ -46,9 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (apiUser) {
+      // Cast apiUser to include role if it's returning from API
+      const userWithRole = apiUser as any;
+      const role = userWithRole.role || 'MEMBER';
       setActiveUser({
         ...apiUser,
-        img: MOCK_IMAGES[apiUser.role] || MOCK_IMAGES.MEMBER
+        role: role as UserRole,
+        img: MOCK_IMAGES[role] || MOCK_IMAGES.MEMBER,
+        name: apiUser.name || '',
       });
     } else {
       setActiveUser(null);

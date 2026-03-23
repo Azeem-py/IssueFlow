@@ -179,7 +179,7 @@ export function Projects() {
                 <div className="flex -space-x-2">
                    {(() => {
                      const assignees = Array.from(new Set(
-                       project.issues
+                       (project as any).issues
                          ?.map((i: any) => i.assignee)
                          .filter(Boolean)
                          .map((a: any) => JSON.stringify(a))

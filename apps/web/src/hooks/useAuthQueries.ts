@@ -1,18 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import { UserRole } from '@issueflow/types';
+import { IUser } from '@issueflow/types';
 
 export function useAuthQueries() {
   const queryClient = useQueryClient();
-// Get current user
-const useMe = () => useQuery<IUser>({
-  queryKey: ['me'],
-  queryFn: async () => {
-    const { data } = await api.get('/auth/me');
-    return data;
-  },
-  staleTime: 1000 * 60 * 5, // 5 minutes
-});
+
+  // Get current user
+  const useMe = () => useQuery<IUser>({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const { data } = await api.get('/auth/me');
+      return data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: false,
   });
 

@@ -1,20 +1,17 @@
 import React from 'react';
 import { usePermissions } from '../hooks/usePermissions';
+import { useDashboardQueries } from '../hooks/useDashboardQueries';
+import { formatDistanceToNow } from 'date-fns';
 
 export function Dashboard() {
   const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } = usePermissions();
+  const { useDashboardStats, useActivityFeed } = useDashboardQueries();
 
-  // Basic Member Stats
-  const baseStats: { label: string; value: string; change: string; icon: string; color: string; bg: string; unit?: string }[] = [
-    { label: 'My Tasks', value: '12', change: '+2%', icon: 'assignment', color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'High Priority', value: '3', change: '-10%', icon: 'priority_high', color: 'text-amber-500', bg: 'bg-amber-500/10' },
-  ];
+  const { data: statsData, isLoading: isLoadingStats } = useDashboardStats();
+  const { data: activityFeed, isLoading: isLoadingActivity } = useActivityFeed();
 
-  // Additional Admin/Owner Stats
-  const advancedStats: { label: string; value: string; change: string; icon: string; color: string; bg: string; unit?: string }[] = [
-    { label: 'Team Velocity', value: '24', change: '+15%', icon: 'bolt', color: 'text-indigo-400', bg: 'bg-indigo-400/10', unit: 'pts' },
-    { label: 'Total Issues', value: '142', change: '+5%', icon: 'confirmation_number', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-  ];
+  const baseStats = statsData?.baseStats || [];
+  const advancedStats = statsData?.advancedStats || [];
 
   const statsToRender = canInviteMembers ? [...baseStats, ...advancedStats] : baseStats;
 
@@ -37,20 +34,28 @@ export function Dashboard() {
       </div>
 
       {/* Stats Summary Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsToRender.map((stat) => (
-          <div key={stat.label} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-slate-500 text-sm font-medium">{stat.label}</span>
-              <span className={`material-symbols-outlined ${stat.color} ${stat.bg} p-1.5 rounded-lg`}>{stat.icon}</span>
+      {isLoadingStats ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(canInviteMembers ? 4 : 2)].map((_, i) => (
+             <div key={i} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse h-32"></div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {statsToRender.map((stat) => (
+            <div key={stat.label} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-slate-500 text-sm font-medium">{stat.label}</span>
+                <span className={`material-symbols-outlined ${stat.color} ${stat.bg} p-1.5 rounded-lg`}>{stat.icon}</span>
+              </div>
+              <div className="flex items-end gap-2">
+                <p className="text-3xl font-bold">{stat.value} {stat.unit && <span className="text-lg font-normal text-slate-500">{stat.unit}</span>}</p>
+                <span className={`${stat.change.startsWith('+') ? 'text-emerald-500' : stat.change.startsWith('-') ? 'text-rose-500' : 'text-slate-500'} text-xs font-semibold mb-1.5`}>{stat.change}</span>
+              </div>
             </div>
-            <div className="flex items-end gap-2">
-              <p className="text-3xl font-bold">{stat.value} {stat.unit && <span className="text-lg font-normal text-slate-500">{stat.unit}</span>}</p>
-              <span className={`${stat.change.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'} text-xs font-semibold mb-1.5`}>{stat.change}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Role-Specific Feature Modules */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -122,20 +127,44 @@ export function Dashboard() {
             </div>
             <div className="p-6">
               <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
-                {/* Activity Item 1 */}
-                <div className="relative pl-10 pb-8">
-                  <div className="absolute left-0 top-0 size-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center z-10">
-                    <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                {isLoadingActivity ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+                    <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm text-primary font-medium">IF-102</span>
-                      <p className="text-sm font-medium">Bug fix deployed by <span className="text-primary cursor-pointer">Alex Rivera</span></p>
+                ) : activityFeed && activityFeed.length > 0 ? (
+                  activityFeed.map((activity, index) => (
+                    <div key={activity.id} className="relative pl-10 pb-8">
+                      <div className="absolute left-0 top-0 size-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center z-10">
+                        <span className="material-symbols-outlined text-sm">
+                          {activity.action === 'ISSUE_CREATED' ? 'add_task' :
+                           activity.action === 'ISSUE_UPDATED' ? 'update' :
+                           activity.action === 'ISSUE_DELETED' ? 'delete' :
+                           activity.action === 'COMMENT_ADDED' ? 'chat_bubble' :
+                           activity.action === 'MEMBER_INVITED' ? 'person_add' :
+                           activity.action === 'MEMBER_JOINED' ? 'how_to_reg' :
+                           activity.action === 'PROJECT_CREATED' ? 'create_new_folder' :
+                           'rocket_launch'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">
+                            <span className="text-primary cursor-pointer">{activity.user?.name || activity.user?.email}</span> {activity.action.replace('_', ' ').toLowerCase()}
+                          </p>
+                        </div>
+                        {activity.metadata && (
+                           <p className="text-xs text-slate-500">{JSON.stringify(activity.metadata)}</p>
+                        )}
+                        <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
+                          {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500">Fixed race condition in workspace switcher initialization</p>
-                    <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">2 minutes ago</span>
-                  </div>
-                </div>
+                  ))
+                ) : (
+                  <div className="pl-10 pb-2 text-sm text-slate-500">No recent activity.</div>
+                )}
               </div>
             </div>
           </div>
