@@ -24,6 +24,7 @@ export function usePermissions() {
     // 🛠️ Admin & Owner permissions
     canInviteMembers: role === 'OWNER' || role === 'ADMIN',
     canManageProjects: role === 'OWNER' || role === 'ADMIN',
+    canCreateProjects: role === 'OWNER' || role === 'ADMIN',
     canManageUsers: role === 'OWNER' || role === 'ADMIN',
     canManageGlobalIssues: role === 'OWNER' || role === 'ADMIN',
 
