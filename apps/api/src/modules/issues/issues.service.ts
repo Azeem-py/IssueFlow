@@ -130,17 +130,20 @@ export class IssuesService {
 
       this.logger.log(`Created ${notificationData.length} mention notifications for comment ${newComment.id}`);
       
-      // Trigger Web Push Notifications asynchronously
-      dto.mentions.forEach(async (userId) => {
-        // Exclude the author from receiving a push notification for their own action
-        if (userId === authorId) return;
-        
-        await this.pushService.sendPushNotification(userId, {
-          title: 'You were mentioned',
-          body: `${newComment.author?.name || 'Someone'} mentioned you in issue ${issue.shortId}`,
-          url: `/issues/${issue.shortId}` // Frontend URL structure
-        });
-      });
+      // Trigger Web Push Notifications — use Promise.allSettled so errors in one
+      // notification don't block others, and we actually await all of them.
+      const mentionedOthers = dto.mentions.filter((userId) => userId !== authorId);
+      if (mentionedOthers.length > 0) {
+        await Promise.allSettled(
+          mentionedOthers.map((userId) =>
+            this.pushService.sendPushNotification(userId, {
+              title: 'You were mentioned in IssueFlow',
+              body: `${newComment.author?.name || 'Someone'} mentioned you in ${issue.shortId}`,
+              url: `/issues/${issue.shortId}`,
+            })
+          )
+        );
+      }
     }
 
     return newComment;
