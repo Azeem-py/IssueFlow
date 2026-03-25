@@ -8,6 +8,8 @@ import { useTheme } from './ThemeProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthQueries } from '../hooks/useAuthQueries';
 import { usePermissions } from '../hooks/usePermissions';
+import { useNotificationQueries } from '../hooks/useNotificationQueries';
+import { PushNotificationManager } from './PushNotificationManager';
 import { UserRole } from '@issueflow/types';
 
 interface LayoutProps {
@@ -20,7 +22,9 @@ export function Layout({ children }: LayoutProps) {
   const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   const { theme, setTheme } = useTheme();
   const { user, setRole, currentOrg, setCurrentOrg } = useAuth();
@@ -28,6 +32,10 @@ export function Layout({ children }: LayoutProps) {
   const { data: organizations } = useOrganizations();
   const { canCreateIssues } = usePermissions();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const { useMyNotifications, markAsRead, markAllAsRead } = useNotificationQueries();
+  const { data: notifications = [] } = useMyNotifications();
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     // Close sidebar on route change
@@ -38,6 +46,9 @@ export function Layout({ children }: LayoutProps) {
     function handleClickOutside(event: MouseEvent) {
       if (orgSwitcherRef.current && !orgSwitcherRef.current.contains(event.target as Node)) {
         setIsOrgSwitcherOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -114,6 +125,8 @@ export function Layout({ children }: LayoutProps) {
             <span className="material-symbols-outlined">help_center</span>
             <span className="text-sm font-medium">Support</span>
           </Link>
+          
+          <PushNotificationManager />
         </nav>
 
         <div className="p-4 border-t border-slate-200 dark:border-slate-800">
@@ -247,10 +260,77 @@ export function Layout({ children }: LayoutProps) {
                 {theme === 'dark' ? 'light_mode' : 'dark_mode'}
               </span>
             </button>
-            <button type="button" className="hidden sm:block p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-white dark:border-background-dark"></span>
-            </button>
+            <div className="relative" ref={notificationsRef}>
+              <button 
+                type="button" 
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="hidden sm:block p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative"
+              >
+                <span className="material-symbols-outlined">notifications</span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-white dark:border-background-dark"></span>
+                )}
+              </button>
+              
+              {isNotificationsOpen && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Notifications</p>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={() => markAllAsRead.mutate()}
+                        className="text-[10px] text-primary font-bold hover:underline"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-sm">
+                        <span className="material-symbols-outlined text-3xl mb-2 opacity-50">notifications_off</span>
+                        <p>No notifications yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {notifications.map((notif) => (
+                          <div 
+                            key={notif.id}
+                            className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!notif.read ? 'bg-primary/5' : ''}`}
+                          >
+                            <Link 
+                              to={`/issues/${notif.issue?.id}`} 
+                              onClick={() => {
+                                setIsNotificationsOpen(false);
+                                if (!notif.read) markAsRead.mutate(notif.id);
+                              }}
+                              className="flex gap-3"
+                            >
+                              <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 mt-1">
+                                {notif.actor?.avatarUrl ? (
+                                  <img src={notif.actor.avatarUrl} alt="" className="size-full object-cover" />
+                                ) : (
+                                  <div className="size-full flex items-center justify-center font-bold text-xs">
+                                    {notif.actor?.name?.charAt(0) || '?'}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-tight">
+                                  <span className="font-bold">{notif.actor?.name}</span> mentioned you in an issue.
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1 font-bold">{notif.issue?.shortId}: {notif.issue?.title}</p>
+                                <p className="text-[10px] text-slate-400 mt-1">{new Date(notif.createdAt).toLocaleString()}</p>
+                              </div>
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {canCreateIssues && (
               <Button 
                 onClick={() => setIsQuickAddOpen(true)}

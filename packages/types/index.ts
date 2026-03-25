@@ -120,6 +120,7 @@ export interface CreateCommentInput {
   content: string;
   issueId: string;
   parentId?: string;
+  mentions?: string[];
 }
 
 export interface IComment {
@@ -172,5 +173,29 @@ export interface IActivityLog {
     name: string | null;
     email: string;
     avatarUrl: string | null;
+  };
+}
+
+export interface INotification {
+  id: string;
+  type: string;
+  read: boolean;
+  userId: string;
+  actorId: string;
+  issueId?: string;
+  commentId?: string;
+  organizationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  actor?: IUser;
+  issue?: IIssue;
+  comment?: IComment;
+}
+
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
   };
 }

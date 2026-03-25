@@ -43,12 +43,15 @@ model User {
   assignedIssues Issue[]        @relation("AssignedIssues")
   sentInvitations Invitation[]
   comments       Comment[]
+  notifications  Notification[] @relation("UserNotifications")
+  actorNotifs    Notification[] @relation("ActorNotifications")
   activityLogs   ActivityLog[]
   resetOtp       String?
   resetOtpExpires DateTime?
   refreshToken   String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  pushSubscriptions PushSubscription[]
   deletedAt      DateTime?
 
   @@index([email])
@@ -64,6 +67,7 @@ model Organization {
   issues    Issue[]
   invitations Invitation[]
   activityLogs ActivityLog[]
+  notifications Notification[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -137,6 +141,7 @@ model Issue {
   assigneeId     String?
   assignee       User?        @relation("AssignedIssues", fields: [assigneeId], references: [id])
   comments       Comment[]
+  notifications  Notification[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
@@ -159,6 +164,7 @@ model Comment {
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies   Comment[] @relation("CommentReplies")
+  notifications Notification[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -193,4 +199,39 @@ model ActivityLog {
   @@index([organizationId])
   @@index([userId])
   @@index([createdAt])
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  type           String       // e.g., 'MENTION'
+  userId         String       // the user who is notified
+  user           User         @relation("UserNotifications", fields: [userId], references: [id])
+  actorId        String       // the user who did the action
+  actor          User         @relation("ActorNotifications", fields: [actorId], references: [id])
+  issueId        String?
+  issue          Issue?       @relation(fields: [issueId], references: [id])
+  commentId      String?
+  comment        Comment?     @relation(fields: [commentId], references: [id])
+  read           Boolean      @default(false)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

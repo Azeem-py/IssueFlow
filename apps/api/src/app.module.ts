@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrgsModule } from './modules/orgs/orgs.module';
 import { IssuesModule } from './modules/issues/issues.module';
 import { ActivityModule } from './modules/activity/activity.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { DashboardModule } from './modules/dashboard.module';
 
@@ -29,6 +30,7 @@ import { DashboardModule } from './modules/dashboard.module';
     OrgsModule,
     IssuesModule,
     ActivityModule,
+    NotificationsModule,
     DashboardModule,
   ],
   providers: [

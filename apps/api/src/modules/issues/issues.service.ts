@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IssueSequenceService } from './issue-sequence.service';
+import { PushService } from '../notifications/push.service';
 import { CreateIssueInput, SearchFilters, CreateCommentInput } from '@issueflow/types';
 
 @Injectable()
@@ -9,7 +10,8 @@ export class IssuesService {
 
   constructor(
     private prisma: PrismaService,
-    private sequenceService: IssueSequenceService
+    private sequenceService: IssueSequenceService,
+    private pushService: PushService
   ) {}
 
   async createIssue(dto: CreateIssueInput, authorId: string) {
@@ -98,7 +100,7 @@ export class IssuesService {
 
     this.logger.log(`Adding comment to issue ${dto.issueId} by user ${authorId}`);
 
-    return this.prisma.comment.create({
+    const newComment = await this.prisma.comment.create({
       data: {
         content: dto.content,
         issueId: dto.issueId,
@@ -109,6 +111,39 @@ export class IssuesService {
         author: { select: { id: true, name: true, email: true, avatarUrl: true } }
       }
     });
+
+    if (dto.mentions && dto.mentions.length > 0) {
+      // Create notifications for each mentioned user (including self, per requirements)
+      const notificationData = dto.mentions.map((userId) => ({
+        type: 'MENTION',
+        userId,
+        actorId: authorId,
+        issueId: dto.issueId,
+        commentId: newComment.id,
+        organizationId: issue.organizationId,
+      }));
+
+      await this.prisma.notification.createMany({
+        data: notificationData,
+        skipDuplicates: true,
+      });
+
+      this.logger.log(`Created ${notificationData.length} mention notifications for comment ${newComment.id}`);
+      
+      // Trigger Web Push Notifications asynchronously
+      dto.mentions.forEach(async (userId) => {
+        // Exclude the author from receiving a push notification for their own action
+        if (userId === authorId) return;
+        
+        await this.pushService.sendPushNotification(userId, {
+          title: 'You were mentioned',
+          body: `${newComment.author?.name || 'Someone'} mentioned you in issue ${issue.shortId}`,
+          url: `/issues/${issue.shortId}` // Frontend URL structure
+        });
+      });
+    }
+
+    return newComment;
   }
 
   async getComments(issueId: string) {
