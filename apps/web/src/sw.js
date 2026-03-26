@@ -1,5 +1,7 @@
+import { precacheAndRoute } from 'workbox-precaching';
+
 // vite-plugin-pwa injects the precache manifest here at build time:
-self.__WB_MANIFEST;
+precacheAndRoute(self.__WB_MANIFEST);
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
