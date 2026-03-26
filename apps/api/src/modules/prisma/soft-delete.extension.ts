@@ -1,46 +1,25 @@
 import { Prisma } from '@prisma/client';
 
-export const softDeleteExtension = Prisma.defineExtension((client) => {
-  return client.$extends({
+export const softDeleteExtension = (client: any) => client.$extends({
     name: 'softDelete',
-    model: {
-      $allModels: {
-        async delete<T, A>(
-          this: T,
-          args: Prisma.Exact<A, Prisma.Args<T, 'update'>>,
-        ): Promise<Prisma.Result<T, A, 'update'>> {
-          const context = Prisma.getExtensionContext(this);
-          const castArgs = args as any;
-          return (context as any).update({
-            ...castArgs,
-            data: { deletedAt: new Date() },
-          });
-        },
-        async deleteMany<T, A>(
-          this: T,
-          args: Prisma.Exact<A, Prisma.Args<T, 'updateMany'>>,
-        ): Promise<Prisma.Result<T, A, 'updateMany'>> {
-          const context = Prisma.getExtensionContext(this);
-          const castArgs = args as any;
-          return (context as any).updateMany({
-            ...castArgs,
-            data: { deletedAt: new Date() },
-          });
-        },
-      },
-    },
     query: {
       $allModels: {
-        async $allOperations({ model, operation, args, query }) {
+        async $allOperations({ model, operation, args, query }: { model: string, operation: string, args: any, query: (args: any) => Promise<any> }) {
+          // Define models that support soft-delete
+          const softDeleteModels = ['User', 'Organization', 'Member', 'Project', 'Issue', 'Comment'];
+          
+          if (!softDeleteModels.includes(model)) {
+            return query(args);
+          }
+
           // Read operations: automatically filter out deleted items
           if (
             ['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate', 'groupBy'].includes(
               operation,
             )
           ) {
-            const castArgs = args as any;
-            castArgs.where = { ...castArgs.where, deletedAt: null };
-            return query(castArgs);
+            args.where = { ...args.where, deletedAt: null };
+            return query(args);
           }
 
           // Point-lookup operations: check status AFTER fetch
@@ -55,11 +34,26 @@ export const softDeleteExtension = Prisma.defineExtension((client) => {
             return result;
           }
 
-          // For everything else (update, create, upsert, etc.), let it pass through.
-          // The business logic will typically handle specific guards.
+          // Delete operations: convert to updates
+          // We use the client to redirect these to 'update'
+          if (operation === 'delete') {
+            const modelKey = model.charAt(0).toLowerCase() + model.slice(1);
+            return (client as any)[modelKey].update({
+              ...args,
+              data: { deletedAt: new Date() },
+            });
+          }
+
+          if (operation === 'deleteMany') {
+            const modelKey = model.charAt(0).toLowerCase() + model.slice(1);
+            return (client as any)[modelKey].updateMany({
+              ...args,
+              data: { deletedAt: new Date() },
+            });
+          }
+
           return query(args);
         },
       },
     },
   });
-});
