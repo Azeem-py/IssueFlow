@@ -115,10 +115,12 @@ export class AuthService {
     });
 
     if (response) {
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
+
       response.cookie('access_token', access_token, {
         httpOnly: true,
-        secure: this.configService.get('NODE_ENV') === 'production',
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000, // 15 mins
       });
 
@@ -136,8 +138,8 @@ export class AuthService {
 
         response.cookie('refresh_token', refresh_token, {
           httpOnly: true,
-          secure: this.configService.get('NODE_ENV') === 'production',
-          sameSite: 'lax',
+          secure: isProduction,
+          sameSite: isProduction ? 'none' : 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
       }
@@ -166,10 +168,12 @@ export class AuthService {
         expiresIn: '15m',
       });
 
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
+
       response.cookie('access_token', access_token, {
         httpOnly: true,
-        secure: this.configService.get('NODE_ENV') === 'production',
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
       });
 
@@ -184,8 +188,16 @@ export class AuthService {
       where: { id: userId },
       data: { refreshToken: null },
     });
-    response.clearCookie('access_token');
-    response.clearCookie('refresh_token');
+    
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    };
+    
+    response.clearCookie('access_token', cookieOptions);
+    response.clearCookie('refresh_token', cookieOptions);
   }
 
   async updateProfile(userId: string, data: { name?: string; avatarUrl?: string }) {
