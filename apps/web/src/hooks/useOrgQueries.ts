@@ -16,7 +16,10 @@ export function useOrgQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Get pending invitations (sent by this org)
@@ -38,7 +41,10 @@ export function useOrgQueries() {
       const { data } = await api.get('/organizations/invites/my');
       return data;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 10000, // Poll every 5 seconds for real-time updates
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Create invitation mutation (sent by user)
