@@ -76,10 +76,10 @@ export function Layout({ children }: LayoutProps) {
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-card-dark border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 md:translate-x-0 md:static ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary rounded-lg p-1.5 flex items-center justify-center">
-              <span className="material-symbols-outlined text-white">fluid</span>
+            <div className="size-9 rounded-lg overflow-hidden shadow-lg shadow-primary/20">
+              <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-primary">IssueFlow</h1>
+            <h1 className="text-xl font-black tracking-tighter text-primary uppercase italic">IssueFlow</h1>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400">
             <span className="material-symbols-outlined">close</span>

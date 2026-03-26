@@ -1,6 +1,8 @@
-@import "tailwindcss";
-@custom-variant dark (&:is(.dark, .dark *));
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark, .dark *));
 
 @theme {
   --color-primary: #6764f2;
@@ -12,21 +14,38 @@
   --color-slate-card: #0b1120;
   --color-slate-border: #1e293b;
 
-  --font-display: "Inter", sans-serif;
+  --font-display: "Outfit", "Inter", sans-serif;
+  --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --radius-default: 0.25rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --animate-gradient: gradient 8s linear infinite;
+  --animate-fade-in-up: fade-in-up 1s ease-out forwards;
+
+  @keyframes gradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 @layer base {
   body {
-    @apply font-display antialiased;
+    @apply font-sans antialiased text-slate-100 bg-background-dark;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
   }
 }
 
 @layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -38,15 +57,5 @@
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
-  }
-
-  /* For Firefox */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: theme('colors.slate.200') transparent;
-  }
-
-  .dark .custom-scrollbar {
-    scrollbar-color: theme('colors.slate.800') transparent;
   }
 }

@@ -51,8 +51,11 @@ api.interceptors.response.use(
         processQueue(error, null); // Pass original 401 error
 
         // If refresh fails, we should logout the user locally and redirect to login
-        // to avoid infinite loops and bad states.
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        // but only if we are currently on a protected route that requires auth.
+        const publicPaths = ['/', '/login', '/signup', '/forgot-password', '/invite/accept'];
+        const isPublicPath = publicPaths.includes(window.location.pathname);
+        
+        if (typeof window !== 'undefined' && !isPublicPath) {
           window.location.href = '/login';
         }
 
