@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { QuickAddModal } from './QuickAddModal';
+import { CommandPalette } from './CommandPalette';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useNavigate } from 'react-router-dom';
 import { CreateOrgModal } from './CreateOrgModal';
 import { ProfileModal } from './ProfileModal';
 import { Button } from '@issueflow/ui';
@@ -19,6 +22,15 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const navigate = useNavigate();
+
+  useKeyboardShortcuts({
+    "cmd+k": () => setIsCommandPaletteOpen(prev => !prev),
+    "c": () => setIsQuickAddOpen(true),
+    "g i": () => navigate("/dashboard/issues"),
+    "g p": () => navigate("/dashboard/projects")
+  });
   const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
@@ -241,7 +253,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-2 md:gap-4">
             <div className="relative max-w-md hidden lg:block">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-              <input className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl pl-10 pr-4 py-2 text-sm w-48 xl:w-64 focus:ring-4 focus:ring-primary/10 transition-all font-medium" placeholder="Search anything..." type="text" />
+              <button type="button" onClick={() => setIsCommandPaletteOpen(true)} className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl pl-10 pr-4 py-2 text-sm w-48 xl:w-64 hover:ring-4 hover:ring-primary/10 transition-all font-medium flex justify-between items-center text-slate-500 cursor-text"><span>Search anything...</span><span className="text-[10px] font-mono font-bold bg-white dark:bg-[#1a1933] px-1.5 py-0.5 rounded shadow-sm">⌘K</span></button>
             </div>
             <button 
               type="button"
@@ -344,6 +356,7 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setIsQuickAddOpen(false)} />
+      <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onOpenQuickAdd={() => setIsQuickAddOpen(true)} />
       <CreateOrgModal 
         isOpen={isCreateOrgOpen} 
         onClose={() => setIsCreateOrgOpen(false)} 
