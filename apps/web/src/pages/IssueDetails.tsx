@@ -365,29 +365,31 @@ export function IssueDetails() {
       {/* Main Content Area */}
       <div className="flex-1 min-w-0">
         {/* Breadcrumbs */}
-        <div className="flex flex-wrap items-center gap-2 mb-6 text-sm">
+        <div className="flex flex-wrap items-center gap-2 mb-6 text-[10px] font-black uppercase tracking-widest font-display">
           <Link to="/dashboard/projects" className="text-slate-400 hover:text-primary transition-colors">Projects</Link>
           <span className="text-slate-600">/</span>
           <span className="text-slate-400">{(issue as any).project?.name}</span>
           <span className="text-slate-600">/</span>
-          <span className="text-slate-100 font-mono bg-primary/10 px-2 py-0.5 rounded border border-primary/20">{(issue as any).project?.key}-{issue.shortId.split('-').pop()}</span>
+          <span className="text-primary font-mono bg-primary/10 px-2 py-0.5 rounded border border-primary/20">{(issue as any).project?.key}-{issue.shortId.split('-').pop()}</span>
         </div>
-
+ 
         {/* Title and Meta */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-             <span className={`px-3 py-1 rounded-lg border font-bold text-[10px] uppercase tracking-wider ${
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+             <span className={`px-3 py-1 rounded-lg border font-black text-[10px] uppercase tracking-wider ${
               issue.status === IssueStatus.DONE ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-primary/10 text-primary border-primary/20'
             }`}>
               {issue.status.replace('_', ' ')}
             </span>
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800"></div>
-            <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-sm">schedule</span>
               Opened {new Date(issue.createdAt).toLocaleDateString()}
             </span>
           </div>
-          <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-tight mb-4">{issue.title}</h1>
+          <h1 className="text-slate-900 dark:text-white text-2xl md:text-5xl font-black leading-tight tracking-tighter mb-4 uppercase">
+            {issue.title}
+          </h1>
           
           <div className="flex items-center justify-between py-2 border-y border-slate-100 dark:border-slate-800/50 mt-6">
             <div className="flex items-center gap-3">
@@ -474,8 +476,8 @@ export function IssueDetails() {
                 </div>
                 <h3 className="text-lg font-bold tracking-tight">Post a comment</h3>
               </div>
-              <form onSubmit={handleAddComment} className="flex gap-4 group">
-                <div className="size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner overflow-hidden">
+              <form onSubmit={handleAddComment} className="flex gap-3 group">
+                <div className="size-8 md:size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner overflow-hidden">
                   {user?.avatarUrl ? (
                     <img src={user.avatarUrl} className="size-full object-cover" alt="" />
                   ) : (

@@ -39,7 +39,7 @@ export function Landing() {
             <div className="size-9 md:size-10 rounded-xl overflow-hidden shadow-lg shadow-primary/20 group-hover:rotate-12 transition-transform duration-300">
               <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
             </div>
-            <span className="text-xl md:text-2xl font-black tracking-tighter text-white uppercase italic">IssueFlow</span>
+            <span className="text-xl md:text-2xl text-premium text-white">IssueFlow</span>
           </Link>
 
           {/* Desktop Links */}
@@ -119,8 +119,9 @@ export function Landing() {
           <span className="text-transparent bg-clip-text bg-gradient-to-br from-primary via-white to-primary bg-[length:200%_auto] animate-gradient">SPEED OF LIGHT.</span>
         </h1>
 
-        <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-2xl font-medium mb-12 md:mb-16 leading-relaxed px-4 opacity-80">
-          The high-performance issue tracker designed for developers who value <span className="text-white font-bold">precision</span> over complexity.
+        <p className="max-w-3xl mx-auto text-slate-400 text-lg md:text-2xl font-medium mb-12 md:mb-16 leading-relaxed px-4 opacity-80 uppercase tracking-tight">
+          The high-performance issue tracker for teams who value <span className="text-white font-bold">speed and simplicity.</span> <br className="hidden md:block" />
+          Built for <span className="text-white">developers</span>, designed for <span className="text-primary">everyone.</span>
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 px-4">
@@ -193,52 +194,59 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Trust/Integrations - Optimized for Mobile */}
+      {/* Total Transparency - Real Dashboard Feature */}
       <section id="product" className="py-24 md:py-40 px-6 max-w-7xl mx-auto relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 md:gap-24 items-center text-center lg:text-left">
-          <div className="space-y-8 md:space-y-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 md:gap-24 items-center">
+          <div className="space-y-8 md:space-y-12 order-2 lg:order-1">
             <div className="space-y-4 md:space-y-6">
-              <h2 className="text-5xl md:text-7xl font-black tracking-tight leading-none text-white uppercase italic">Zero <br /> Latency.</h2>
-              <p className="text-lg md:text-xl text-slate-400 font-medium leading-relaxed max-w-md mx-auto lg:mx-0">Every interaction in IssueFlow is optimized for speed. No spinners, no progressive loading. Just pure, instant execution.</p>
+              <h2 className="text-5xl md:text-7xl font-black tracking-tight leading-none text-white uppercase italic">Total <br /> Transparency.</h2>
+              <p className="text-lg md:text-xl text-slate-400 font-medium leading-relaxed max-w-md">Every change, every comment, and every deployment is captured in our unified activity stream. No more "who did what" meetings.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
+            <div className="space-y-6">
               {[
-                { label: 'Time to Interactive', value: '42ms', desc: 'World class performance' },
-                { label: 'Keyboard Latency', value: '<2ms', desc: 'Instant feedback' },
-              ].map(stat => (
-                <div key={stat.label} className="p-6 md:p-8 rounded-2xl md:rounded-3xl bg-white/5 border border-white/5">
-                  <div className="text-3xl md:text-4xl font-black text-primary mb-2 italic tracking-tighter">{stat.value}</div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-200 mb-1">{stat.label}</div>
-                  <div className="text-[9px] font-bold text-slate-500 uppercase">{stat.desc}</div>
+                { label: 'Real-time Feed', desc: 'Instant updates on issue status and team comments.' },
+                { label: 'Audit Logs', desc: 'Secure, immutable history of all workspace actions.' },
+                { label: 'Role-based Views', desc: 'Tailored visibility for Owners, Admins, and Members.' }
+              ].map(item => (
+                <div key={item.label} className="flex gap-4">
+                  <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-primary text-sm">check</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest">{item.label}</h4>
+                    <p className="text-xs text-slate-500 font-medium">{item.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="relative">
-            <div className="absolute -inset-10 bg-primary/20 blur-[80px] md:blur-[120px] rounded-full"></div>
-            <div className="relative p-6 md:p-12 rounded-[2rem] md:rounded-[3.5rem] bg-black/40 backdrop-blur-3xl border border-white/10 border-t-white/20">
-              <div className="space-y-6 md:space-y-8">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-400">Execution Speed Benchmark</span>
-                  <span className="material-symbols-outlined text-primary text-xl">bolt</span>
-                </div>
-                <div className="space-y-4 md:space-y-6">
-                  {[
-                    { name: 'IssueFlow', width: '100%', time: '42ms', color: 'bg-primary shadow-[0_0_20px_rgba(103,100,242,0.4)]' },
-                    { name: 'Traditional CRM', width: '40%', time: '820ms', color: 'bg-slate-800' },
-                    { name: 'Jira Legacy', width: '25%', time: '1450ms', color: 'bg-slate-900' }
-                  ].map(bar => (
-                    <div key={bar.name} className="space-y-2">
-                      <div className="flex justify-between text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <span>{bar.name}</span>
-                        <span>{bar.time}</span>
-                      </div>
-                      <div className="h-2.5 md:h-3 w-full bg-black rounded-full overflow-hidden p-0.5 border border-white/5">
-                        <div className={`h-full ${bar.color} rounded-full transition-all duration-1000`} style={{ width: bar.width }}></div>
-                      </div>
+          <div className="relative order-1 lg:order-2">
+            <div className="absolute -inset-10 bg-primary/20 blur-[80px] md:blur-[120px] rounded-full sm:opacity-50"></div>
+            <div className="relative bg-[#0a0a0a]/80 backdrop-blur-3xl border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
+              {/* Fake Dashboard Feed UI */}
+              <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recent Workspace Activity</span>
+                <div className="size-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              </div>
+              <div className="p-6 space-y-6">
+                {[
+                  { user: 'Azeem Sanusi', action: 'created issue', target: 'PROJ-42', time: '2m ago', icon: 'add_task', color: 'text-emerald-500' },
+                  { user: 'Sarah Chen', action: 'promoted to', target: 'Admin', time: '14m ago', icon: 'admin_panel_settings', color: 'text-primary' },
+                  { user: 'System Bot', action: 'enforced', target: '2FA Security', time: '1h ago', icon: 'security', color: 'text-amber-500' },
+                  { user: 'Alex Rivera', action: 'commented on', target: 'ISS-109', time: '2h ago', icon: 'chat_bubble', color: 'text-blue-400' }
+                ].map((act, i) => (
+                  <div key={i} className="flex items-start gap-4">
+                    <div className={`size-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 ${act.color}`}>
+                      <span className="material-symbols-outlined text-lg">{act.icon}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white leading-tight">
+                        {act.user} <span className="text-slate-500 font-medium">{act.action}</span> <span className="text-primary italic">{act.target}</span>
+                      </p>
+                      <span className="text-[9px] text-slate-600 uppercase font-black tracking-widest leading-none mt-1 block">{act.time}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -248,8 +256,8 @@ export function Landing() {
       {/* Developer Features - GRID 4.0 */}
       <section id="features" className="py-24 md:py-40 px-6 max-w-7xl mx-auto relative z-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 md:mb-24">
-          <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white uppercase italic leading-none text-center md:text-left">Built for <br /> Builders.</h2>
-          <p className="max-w-sm text-slate-500 font-bold uppercase tracking-widest text-[10px] md:text-xs leading-loose text-center md:text-left mx-auto md:mx-0">We removed the friction between your code and your tracking. Use the interface you already love.</p>
+          <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white uppercase leading-none text-center md:text-left">Built for <br /> Builders. <span className="text-primary block md:inline md:ml-4">Loved by Teams.</span></h2>
+          <p className="max-w-sm text-slate-500 font-bold uppercase tracking-widest text-[10px] md:text-xs leading-loose text-center md:text-left mx-auto md:mx-0">We removed the friction between your code and your tracking. Powerful enough for dev workflows, yet simple enough for non-technical users to master in seconds.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -261,7 +269,7 @@ export function Landing() {
             { title: 'Realtime Sync', desc: 'Collab without refresh. State is always perfectly synced.', icon: 'sync' },
             { title: 'Global Search', desc: 'Lightning fast command bar for finding anything instantly.', icon: 'search' },
             { title: 'Audit Logs', desc: 'Enterprise-grade security and tracking for every change.', icon: 'verified_user' },
-            { title: 'Theme Engine', desc: 'Beautifully crafted dark and light modes out of the box.', icon: 'palette' }
+            { title: 'Zero Learning Curve', desc: 'Clean, intuitive interface that non-technical members master in seconds.', icon: 'auto_awesome' }
           ].map((f, i) => (
             <div key={f.title} className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/10 transition-all group flex flex-col justify-between min-h-[14rem] md:h-64 cursor-default">
               <div className="size-10 md:size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary/20 group-hover:border-primary/30 transition-all duration-500">
@@ -289,7 +297,7 @@ export function Landing() {
             </div>
           </div>
           <div className="space-y-6 md:space-y-10 order-1 lg:order-2 text-center lg:text-left">
-            <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white uppercase italic leading-none">Works with <br /> Your Stack.</h2>
+            <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white uppercase leading-none">Works with <br /> Your Stack.</h2>
             <p className="text-lg md:text-xl text-slate-400 font-medium leading-relaxed">Connect IssueFlow with the tools you use every day. From GitHub actions to Slack alerts, we keep everyone in the loop.</p>
             <div className="flex flex-wrap justify-center lg:justify-start gap-3">
               {['Webhooks', 'Slack Bot', 'Prisma Sync'].map(tag => (
@@ -307,7 +315,7 @@ export function Landing() {
       {/* Pricing Section */}
       <section id="pricing" className="py-24 md:py-40 px-6 max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-16 md:mb-24">
-          <h2 className="text-5xl md:text-[8rem] font-black tracking-tighter text-white uppercase italic mb-6 md:mb-8">Simple <br /> Pricing.</h2>
+          <h2 className="text-5xl md:text-[8rem] font-black tracking-tighter text-white uppercase mb-6 md:mb-8">Simple <br /> Pricing.</h2>
           <p className="text-slate-500 font-black uppercase tracking-[0.3em] text-[10px] md:text-xs">Start building for free. Scale when you scale.</p>
         </div>
 
@@ -348,7 +356,7 @@ export function Landing() {
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-black opacity-20 rounded-full -ml-40 -mb-40 blur-[60px]"></div>
 
           <div className="relative z-10">
-            <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9] uppercase italic">
+            <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9] uppercase">
               READY TO <br className="hidden sm:block" /> BREAK THE SOUND <br className="hidden sm:block" /> BARRIER?
             </h2>
             <p className="text-white/70 text-base md:text-xl font-bold mb-10 md:mb-12 max-w-md mx-auto">
@@ -372,7 +380,7 @@ export function Landing() {
           <div className="size-9 md:size-10 rounded-xl overflow-hidden shadow-lg shadow-primary/20">
             <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
           </div>
-          <span className="text-xl md:text-2xl font-black tracking-tighter text-white uppercase italic">IssueFlow</span>
+          <span className="text-xl md:text-2xl text-premium text-white">IssueFlow</span>
         </div>
 
         <div className="flex flex-col items-center gap-4">

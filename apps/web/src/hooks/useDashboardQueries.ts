@@ -32,8 +32,22 @@ export function useDashboardQueries() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const useAuditLogs = () => useQuery<IActivityLog[]>({
+    queryKey: ['audit-logs', currentOrg?.id],
+    queryFn: async () => {
+      if (!currentOrg?.id) return [];
+      const { data } = await api.get('/activity/audit', {
+        headers: { 'x-org-id': currentOrg.id },
+      });
+      return data;
+    },
+    enabled: !!currentOrg?.id,
+    refetchOnMount: 'always', // Force refetch on mount as requested
+  });
+
   return {
     useDashboardStats,
     useActivityFeed,
+    useAuditLogs,
   };
 }

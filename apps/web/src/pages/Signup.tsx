@@ -66,9 +66,9 @@ export function Signup() {
       <div className="w-full max-w-lg relative py-12">
         <div className="bg-card-dark/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4">
+            <Link to="/" className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4 hover:scale-105 transition-transform">
               <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
-            </div>
+            </Link>
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Create an Account</h1>
             <p className="text-slate-400 text-sm text-center">Join IssueFlow today and streamline your engineering workflow</p>
           </div>

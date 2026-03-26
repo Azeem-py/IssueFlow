@@ -55,9 +55,9 @@ export function Login() {
       <div className="w-full max-w-md relative">
         <div className="bg-card-dark/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-10">
-            <div className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4">
+            <Link to="/" className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4 hover:scale-105 transition-transform">
               <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
-            </div>
+            </Link>
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Welcome Back</h1>
             <p className="text-slate-400 text-sm">Sign in to your IssueFlow account</p>
           </div>

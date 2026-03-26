@@ -36,4 +36,29 @@ export class ActivityService {
       take: limit,
     });
   }
+
+  async getAuditLogs(orgId: string, limit = 10) {
+    const auditActions: ActivityAction[] = [
+      ActivityAction.MEMBER_INVITED,
+      ActivityAction.MEMBER_JOINED,
+      ActivityAction.MEMBER_ROLE_UPDATED,
+      ActivityAction.MEMBER_REMOVED,
+      ActivityAction.OWNERSHIP_TRANSFERRED,
+      ActivityAction.ORG_UPDATED,
+      ActivityAction.PROJECT_CREATED,
+      ActivityAction.PROJECT_DELETED,
+    ];
+
+    return this.prisma.activityLog.findMany({
+      where: {
+        organizationId: orgId,
+        action: { in: auditActions },
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
 }

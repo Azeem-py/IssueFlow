@@ -74,13 +74,13 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-card-dark border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 md:translate-x-0 md:static ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg overflow-hidden shadow-lg shadow-primary/20">
+        <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/50 mb-4">
+          <Link to="/" className="flex items-center gap-2 group transition-all">
+            <div className="size-8 rounded-lg overflow-hidden shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
               <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
             </div>
-            <h1 className="text-xl font-black tracking-tighter text-primary uppercase italic">IssueFlow</h1>
-          </div>
+            <h1 className="text-lg text-brand">IssueFlow</h1>
+          </Link>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400">
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -343,7 +343,7 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>

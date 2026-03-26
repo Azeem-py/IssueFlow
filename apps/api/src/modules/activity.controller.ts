@@ -19,4 +19,11 @@ export class ActivityController {
     const orgId = req.headers['x-org-id'] as string;
     return this.activityService.getLogs(orgId);
   }
+
+  @Get('audit')
+  @ApiOperation({ summary: 'Get recent administrative audit logs' })
+  async getAuditLogs(@Req() req: Request) {
+    const orgId = req.headers['x-org-id'] as string;
+    return this.activityService.getAuditLogs(orgId);
+  }
 }

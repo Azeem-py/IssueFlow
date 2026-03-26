@@ -54,9 +54,10 @@ export class OrgsController {
   @ApiOperation({ summary: 'Create a new project (Admin/Owner only)' })
   createProject(
     @Param() params: OrgParamsDto,
-    @Body() dto: CreateProjectDto
+    @Body() dto: CreateProjectDto,
+    @CurrentUser() user: any
   ) {
-    return this.orgsService.createProject(params.id, dto.name, dto.key, dto.logoUrl);
+    return this.orgsService.createProject(params.id, dto.name, dto.key, user.id, dto.logoUrl);
   }
 
   @Get(':id/projects')
@@ -83,9 +84,10 @@ export class OrgsController {
   updateProject(
     @Param('id') orgId: string,
     @Param('projectId') projectId: string,
-    @Body() dto: CreateProjectDto
+    @Body() dto: CreateProjectDto,
+    @CurrentUser() user: any
   ) {
-    return this.orgsService.updateProject(orgId, projectId, dto);
+    return this.orgsService.updateProject(orgId, projectId, user.id, dto);
   }
 
   @Delete(':id/projects/:projectId')
@@ -94,9 +96,10 @@ export class OrgsController {
   @ApiOperation({ summary: 'Delete a project (Admin/Owner only)' })
   deleteProject(
     @Param('id') orgId: string,
-    @Param('projectId') projectId: string
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: any
   ) {
-    return this.orgsService.deleteProject(orgId, projectId);
+    return this.orgsService.deleteProject(orgId, projectId, user.id);
   }
 
   // --- Invitations ---
@@ -166,17 +169,18 @@ export class OrgsController {
   @ApiOperation({ summary: 'Update a members role (Admin/Owner only)' })
   updateRole(
     @Param() params: MemberUpdateParamsDto,
-    @Body() dto: UpdateRoleDto
+    @Body() dto: UpdateRoleDto,
+    @CurrentUser() user: any
   ) {
-    return this.orgsService.updateMemberRole(params.id, params.memberId, dto.role);
+    return this.orgsService.updateMemberRole(params.id, params.memberId, dto.role, user.id);
   }
 
   @Delete(':id/members/:memberId')
   @UseGuards(OrgMemberGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Remove a member from the organization (Admin/Owner only)' })
-  removeMember(@Param() params: MemberUpdateParamsDto) {
-    return this.orgsService.removeMember(params.id, params.memberId);
+  removeMember(@Param() params: MemberUpdateParamsDto, @CurrentUser() user: any) {
+    return this.orgsService.removeMember(params.id, params.memberId, user.id);
   }
 
   @Post(':id/transfer-ownership')

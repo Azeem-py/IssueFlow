@@ -59,31 +59,31 @@ export function ProjectDetails() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Project Header */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           {project.logoUrl ? (
-            <div className="size-16 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="size-12 md:size-16 rounded-xl md:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
               <img src={project.logoUrl} alt={project.name} className="size-full object-cover" />
             </div>
           ) : (
-            <div className="size-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-xl">
+            <div className="size-12 md:size-16 rounded-xl md:rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-lg md:text-xl shrink-0">
               {project.key}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-               <Link to="/dashboard/projects" className="text-xs font-bold text-slate-400 hover:text-primary transition-colors uppercase tracking-widest">Projects</Link>
-               <span className="text-slate-400 text-xs">/</span>
-               <span className="text-xs font-bold text-primary uppercase tracking-widest">{project.key}</span>
+               <Link to="/dashboard/projects" className="text-[10px] font-black text-slate-400 hover:text-primary transition-colors uppercase tracking-widest truncate">Projects</Link>
+               <span className="text-slate-400 text-[10px]">/</span>
+               <span className="text-[10px] font-black text-primary uppercase tracking-widest truncate">{project.key}</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight">{project.name}</h1>
+            <h1 className="text-xl md:text-3xl font-black tracking-tighter uppercase">{project.name}</h1>
           </div>
         </div>
         <button 
           onClick={() => openCreateModal()}
-          className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
+          className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
         >
-          <span className="material-symbols-outlined text-lg">add</span>
+          <span className="material-symbols-outlined text-sm md:text-lg">add</span>
           Create Issue
         </button>
       </div>

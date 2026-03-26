@@ -5,10 +5,11 @@ import { formatDistanceToNow } from 'date-fns';
 
 export function Dashboard() {
   const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } = usePermissions();
-  const { useDashboardStats, useActivityFeed } = useDashboardQueries();
+  const { useDashboardStats, useActivityFeed, useAuditLogs } = useDashboardQueries();
 
   const { data: statsData, isLoading: isLoadingStats } = useDashboardStats();
   const { data: activityFeed, isLoading: isLoadingActivity } = useActivityFeed();
+  const { data: auditLogs, isLoading: isLoadingAudit } = useAuditLogs();
 
   const baseStats = statsData?.baseStats || [];
   const advancedStats = statsData?.advancedStats || [];
@@ -75,18 +76,40 @@ export function Dashboard() {
               </div>
               <div className="p-6">
                 <ul className="text-sm space-y-4">
-                  <li className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">Sarah Chen <span className="text-slate-500 font-normal">was promoted to Admin by</span> Alex Rivera</p>
-                      <p className="text-xs text-slate-400 mt-0.5">March 14, 10:23 AM (IP: 192.168.1.1)</p>
+                  {isLoadingAudit ? (
+                    <div className="space-y-3 animate-pulse">
+                      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-3/4"></div>
+                      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/2"></div>
                     </div>
-                  </li>
-                  <li className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">Organization Security <span className="text-slate-500 font-normal">updated: Enforced 2FA</span></p>
-                      <p className="text-xs text-slate-400 mt-0.5">March 12, 14:10 PM</p>
-                    </div>
-                  </li>
+                  ) : auditLogs && auditLogs.length > 0 ? (
+                    auditLogs.map((log: any) => (
+                      <li key={log.id} className="flex items-start justify-between">
+                        <div>
+                          <p className="text-slate-800 dark:text-slate-200">
+                            {(() => {
+                              const actor = log.user?.name || log.user?.email || 'System';
+                              const meta = log.metadata || {};
+                              switch (log.action) {
+                                case 'MEMBER_INVITED': return <><span className="font-bold">{actor}</span> invited <span className="text-primary">{meta.invitedEmail}</span> as <span className="font-black italic text-[10px] bg-primary/10 px-1.5 py-0.5 rounded ml-1">{meta.role}</span></>;
+                                case 'MEMBER_JOINED': return <><span className="font-bold">{actor}</span> joined the organization via invitation</>;
+                                case 'MEMBER_ROLE_UPDATED': return <><span className="font-bold">{actor}</span> changed <span className="text-primary">{meta.targetEmail}'s</span> role to <span className="font-black italic text-[10px] bg-primary/10 px-1.5 py-0.5 rounded ml-1">{meta.newRole}</span></>;
+                                case 'MEMBER_REMOVED': return <><span className="font-bold">{actor}</span> removed <span className="text-primary font-bold">{meta.targetEmail}</span> from the workspace</>;
+                                case 'PROJECT_CREATED': return <><span className="font-bold">{actor}</span> created project <span className="font-black italic text-primary">{meta.name}</span></>;
+                                case 'PROJECT_DELETED': return <><span className="font-bold">{actor}</span> deleted project <span className="italic">{meta.name}</span></>;
+                                case 'OWNERSHIP_TRANSFERRED': return <><span className="font-bold">{actor}</span> transferred organization ownership</>;
+                                default: return <><span className="font-bold">{actor}</span> performed <span className="italic">{log.action.replace(/_/g, ' ')}</span></>;
+                              }
+                            })()}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
+                            {new Date(log.createdAt).toLocaleDateString()} at {new Date(log.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No recent administrative actions recorded.</p>
+                  )}
                 </ul>
               </div>
             </div>

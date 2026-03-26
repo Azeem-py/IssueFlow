@@ -3,12 +3,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, CreateInviteInput } from '@issueflow/types';
 import * as crypto from 'crypto';
 import { EmailService } from '../email/email.service';
+import { ActivityService } from '../activity/activity.service';
+import { ActivityAction } from '@prisma/client';
 
 @Injectable()
 export class InvitesService {
   constructor(
     private prisma: PrismaService,
-    private emailService: EmailService
+    private emailService: EmailService,
+    private activityService: ActivityService
   ) {}
 
   async createInvite(orgId: string, inviterId: string, dto: CreateInviteInput) {
@@ -38,6 +41,13 @@ export class InvitesService {
 
     // Send the email in background (don't wait for it if not necessary)
     this.emailService.sendInvitationEmail(email, org.name, inviter.name || inviter.email, token);
+
+    await this.activityService.log({
+      action: ActivityAction.MEMBER_INVITED,
+      organizationId: orgId,
+      userId: inviterId,
+      metadata: { invitedEmail: email, role: dto.role },
+    });
 
     return invite;
   }
@@ -79,10 +89,19 @@ export class InvitesService {
         },
       });
 
-      return tx.invitation.update({
+      await tx.invitation.update({
         where: { id: invite.id },
         data: { acceptedAt: new Date() },
       });
+
+      await this.activityService.log({
+        action: ActivityAction.MEMBER_JOINED,
+        organizationId: invite.organizationId,
+        userId: userId,
+        metadata: { inviteId: invite.id, email: invite.email },
+      });
+
+      return invite;
     });
   }
 
