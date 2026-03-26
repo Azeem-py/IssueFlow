@@ -14,7 +14,9 @@ export function configureApp(app: INestApplication) {
   // CORS
   const frontendUrl = process.env.FRONTEND_URL;
   app.enableCors({
-    origin: frontendUrl ? (frontendUrl.split(',').map(url => url.trim())) : true,
+    origin: frontendUrl 
+      ? frontendUrl.split(',').map(url => url.trim().replace(/\/$/, '')) 
+      : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-api-key'],

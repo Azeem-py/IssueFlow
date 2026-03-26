@@ -117,10 +117,11 @@ export class AuthService {
 
     if (response) {
       const isProduction = this.configService.get('NODE_ENV') === 'production';
+      const isSecure = isProduction || !!this.configService.get('VERCEL');
 
       response.cookie('access_token', access_token, {
         httpOnly: true,
-        secure: isProduction,
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 mins
         path: '/',
@@ -140,7 +141,7 @@ export class AuthService {
 
         response.cookie('refresh_token', refresh_token, {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           path: '/',
@@ -152,7 +153,7 @@ export class AuthService {
         });
         response.clearCookie('refresh_token', {
           httpOnly: true,
-          secure: isProduction,
+          secure: isSecure,
           sameSite: 'lax',
           path: '/',
         });
@@ -192,10 +193,11 @@ export class AuthService {
       });
 
       const isProduction = this.configService.get('NODE_ENV') === 'production';
+      const isSecure = isProduction || !!this.configService.get('VERCEL');
 
       response.cookie('access_token', access_token, {
         httpOnly: true,
-        secure: isProduction,
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
@@ -203,7 +205,7 @@ export class AuthService {
 
       response.cookie('refresh_token', new_refresh_token, {
         httpOnly: true,
-        secure: isProduction,
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/',
@@ -222,9 +224,11 @@ export class AuthService {
     });
     
     const isProduction = this.configService.get('NODE_ENV') === 'production';
+    const isSecure = isProduction || !!this.configService.get('VERCEL');
+
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecure,
       sameSite: 'lax' as 'lax',
       path: '/',
     };
