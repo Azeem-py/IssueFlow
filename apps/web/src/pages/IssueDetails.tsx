@@ -325,7 +325,7 @@ export function IssueDetails() {
     if (!id || !window.confirm('Are you sure you want to delete this issue?')) return;
     try {
       await deleteIssue.mutateAsync(id);
-      window.location.href = '/issues';
+      window.location.href = '/dashboard/issues';
     } catch (error) {
       console.error('Failed to delete issue:', error);
     }
@@ -366,7 +366,7 @@ export function IssueDetails() {
       <div className="flex-1 min-w-0">
         {/* Breadcrumbs */}
         <div className="flex flex-wrap items-center gap-2 mb-6 text-sm">
-          <Link to="/projects" className="text-slate-400 hover:text-primary transition-colors">Projects</Link>
+          <Link to="/dashboard/projects" className="text-slate-400 hover:text-primary transition-colors">Projects</Link>
           <span className="text-slate-600">/</span>
           <span className="text-slate-400">{(issue as any).project?.name}</span>
           <span className="text-slate-600">/</span>

@@ -130,7 +130,7 @@ export class AuthService {
       // Refresh Token (long-lived)
       if (rememberMe) {
         const refresh_token = this.jwtService.sign(payload, {
-          expiresIn: '7d',
+          expiresIn: '30d',
           secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
         });
 
@@ -143,7 +143,7 @@ export class AuthService {
           httpOnly: true,
           secure: isSecure,
           sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
           path: '/',
         });
       } else {
@@ -183,7 +183,7 @@ export class AuthService {
       });
 
       const new_refresh_token = this.jwtService.sign(newPayload, {
-        expiresIn: '7d',
+        expiresIn: '30d',
         secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
       });
 
@@ -207,7 +207,7 @@ export class AuthService {
         httpOnly: true,
         secure: isSecure,
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         path: '/',
       });
 

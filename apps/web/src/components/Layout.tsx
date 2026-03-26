@@ -56,10 +56,10 @@ export function Layout({ children }: LayoutProps) {
   }, []);
 
   const navItems = [
-    { label: 'Dashboard', icon: 'dashboard', path: '/' },
-    { label: 'Issues', icon: 'confirmation_number', path: '/issues' },
-    { label: 'Projects', icon: 'tactic', path: '/projects' },
-    { label: 'Team', icon: 'group', path: '/team' },
+    { label: 'Dashboard', icon: 'dashboard', path: '/dashboard' },
+    { label: 'Issues', icon: 'confirmation_number', path: '/dashboard/issues' },
+    { label: 'Projects', icon: 'tactic', path: '/dashboard/projects' },
+    { label: 'Team', icon: 'group', path: '/dashboard/team' },
   ];
 
   return (
@@ -299,7 +299,7 @@ export function Layout({ children }: LayoutProps) {
                             className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!notif.read ? 'bg-primary/5' : ''}`}
                           >
                             <Link 
-                              to={`/issues/${notif.issue?.id}`} 
+                              to={`/dashboard/issues/${notif.issue?.id}`} 
                               onClick={() => {
                                 setIsNotificationsOpen(false);
                                 if (!notif.read) markAsRead.mutate(notif.id);

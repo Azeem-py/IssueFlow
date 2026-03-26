@@ -22,7 +22,9 @@ export function useAuthQueries() {
       const { data } = await api.post('/auth/login', credentials);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Seed the cache immediately so useMe() returns the user without a fetch
+      queryClient.setQueryData(['me'], data.user);
       queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
@@ -33,7 +35,9 @@ export function useAuthQueries() {
       const { data } = await api.post('/auth/register', userData);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Seed the cache with the new user
+      queryClient.setQueryData(['me'], data);
       queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });

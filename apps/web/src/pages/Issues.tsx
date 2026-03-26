@@ -96,7 +96,7 @@ export function Issues() {
                   columnIssues.map((issue) => (
                     <Link 
                       key={issue.id} 
-                      to={`/issues/${issue.id}`}
+                      to={`/dashboard/issues/${issue.id}`}
                       className={`bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm hover:border-primary/50 transition-all group cursor-pointer block ${issue.priority === IssuePriority.URGENT ? 'border-l-4 border-l-rose-500' : ''}`}
                     >
                       <div className="flex items-start justify-between mb-3">

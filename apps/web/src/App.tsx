@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
+import { Landing } from './pages/Landing';
 import { Issues } from './pages/Issues';
 import { Team } from './pages/Team';
 import { IssueDetails } from './pages/IssueDetails';
@@ -33,19 +34,20 @@ function App() {
           <AuthProvider>
             <Routes>
               {/* Public Routes */}
+              <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/invite/accept" element={<AcceptInvite />} />
 
-              {/* Protected Workspace Routes */}
+              {/* Protected Workspace Routes - Moved under /dashboard */}
               <Route element={<ProtectedRoute />}>
-                <Route element={<Layout><Dashboard /></Layout>} path="/" />
-                <Route element={<Layout><Issues /></Layout>} path="/issues" />
-                <Route element={<Layout><IssueDetails /></Layout>} path="/issues/:id" />
-                <Route element={<Layout><Projects /></Layout>} path="/projects" />
-                <Route element={<Layout><ProjectDetails /></Layout>} path="/projects/:id" />
-                <Route element={<Layout><Team /></Layout>} path="/team" />
+                <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+                <Route path="/dashboard/issues" element={<Layout><Issues /></Layout>} />
+                <Route path="/dashboard/issues/:id" element={<Layout><IssueDetails /></Layout>} />
+                <Route path="/dashboard/projects" element={<Layout><Projects /></Layout>} />
+                <Route path="/dashboard/projects/:id" element={<Layout><ProjectDetails /></Layout>} />
+                <Route path="/dashboard/team" element={<Layout><Team /></Layout>} />
               </Route>
 
               {/* Catch-all */}

@@ -72,7 +72,7 @@ export function ProjectDetails() {
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <Link to="/projects" className="text-xs font-bold text-slate-400 hover:text-primary transition-colors uppercase tracking-widest">Projects</Link>
+               <Link to="/dashboard/projects" className="text-xs font-bold text-slate-400 hover:text-primary transition-colors uppercase tracking-widest">Projects</Link>
                <span className="text-slate-400 text-xs">/</span>
                <span className="text-xs font-bold text-primary uppercase tracking-widest">{project.key}</span>
             </div>
@@ -111,7 +111,7 @@ export function ProjectDetails() {
                   columnIssues.map((issue) => (
                     <Link 
                       key={issue.id} 
-                      to={`/issues/${issue.id}`}
+                      to={`/dashboard/issues/${issue.id}`}
                       className={`bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm hover:border-primary/50 transition-all group cursor-pointer block ${issue.priority === IssuePriority.URGENT ? 'border-l-4 border-l-rose-500' : ''}`}
                     >
                       <div className="flex items-start justify-between mb-3">

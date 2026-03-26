@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuthQueries } from '../hooks/useAuthQueries';
+import api from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
 import { UserRole } from '@issueflow/types';
 
 export function Signup() {
+  const { user, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +18,22 @@ export function Signup() {
   
   const { register } = useAuthQueries();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  if (!authLoading && user) {
+    window.location.href = '/dashboard';
+    return null;
+  }
+
+  // Prevent flicker during initial load
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background-dark gap-4">
+        <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
+        <p className="text-slate-500 font-medium animate-pulse">Initializing workspace...</p>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +47,11 @@ export function Signup() {
         role,
         ...(role === UserRole.ADMIN && { secretCode })
       });
-      // Use window.location.href for a full reload to ensure cookies are properly initialized
-      window.location.href = '/';
+      
+      // Small pause for cookie commit
+      await new Promise(r => setTimeout(r, 100));
+      
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Something went wrong. Please try again.');
     }

@@ -141,7 +141,7 @@ export function Projects() {
           {projects.map((project, index) => (
             <Link 
               key={project.id} 
-              to={`/projects/${project.id}`}
+              to={`/dashboard/projects/${project.id}`}
               className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-[2rem] p-8 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group relative overflow-hidden block text-left"
             >
               <div className="flex items-start justify-between mb-8">
