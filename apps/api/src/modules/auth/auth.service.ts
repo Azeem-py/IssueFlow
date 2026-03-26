@@ -121,7 +121,7 @@ export class AuthService {
       response.cookie('access_token', access_token, {
         httpOnly: true,
         secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax',
+        sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 mins
         path: '/',
       });
@@ -141,7 +141,7 @@ export class AuthService {
         response.cookie('refresh_token', refresh_token, {
           httpOnly: true,
           secure: isProduction,
-          sameSite: isProduction ? 'none' : 'lax',
+          sameSite: 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           path: '/',
         });
@@ -153,7 +153,7 @@ export class AuthService {
         response.clearCookie('refresh_token', {
           httpOnly: true,
           secure: isProduction,
-          sameSite: isProduction ? 'none' : 'lax',
+          sameSite: 'lax',
           path: '/',
         });
       }
@@ -196,7 +196,7 @@ export class AuthService {
       response.cookie('access_token', access_token, {
         httpOnly: true,
         secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax',
+        sameSite: 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
       });
@@ -204,7 +204,7 @@ export class AuthService {
       response.cookie('refresh_token', new_refresh_token, {
         httpOnly: true,
         secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/',
       });
@@ -225,7 +225,7 @@ export class AuthService {
     const cookieOptions = {
       httpOnly: true,
       secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+      sameSite: 'lax' as 'lax',
       path: '/',
     };
     
