@@ -28,7 +28,8 @@ export function Signup() {
         role,
         ...(role === UserRole.ADMIN && { secretCode })
       });
-      navigate('/');
+      // Use window.location.href for a full reload to ensure cookies are properly initialized
+      window.location.href = '/';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Something went wrong. Please try again.');
     }

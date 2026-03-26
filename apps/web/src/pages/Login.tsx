@@ -17,7 +17,8 @@ export function Login() {
     
     try {
       await login.mutateAsync({ email, password, rememberMe });
-      navigate('/');
+      // Use window.location.href for a full reload to ensure cookies are properly initialized
+      window.location.href = '/';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     }
