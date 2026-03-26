@@ -63,11 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (organizations && organizations.length > 0) {
       if (!currentOrg) {
-        setCurrentOrg(organizations[0]);
+        const defaultOrg = organizations[0];
+        setCurrentOrg(defaultOrg);
+        localStorage.setItem('issueflow_org_id', defaultOrg.id);
       } else {
         const updatedOrg = organizations.find((o: any) => o.id === currentOrg.id);
         if (updatedOrg) {
           setCurrentOrg(updatedOrg);
+          localStorage.setItem('issueflow_org_id', updatedOrg.id);
         }
       }
     }

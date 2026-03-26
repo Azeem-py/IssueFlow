@@ -38,7 +38,6 @@ export class IssuesService {
     return this.prisma.issue.findMany({
       where: {
         organizationId: orgId,
-        deletedAt: null,
         ...(filters.status && { status: { in: filters.status } }),
         ...(filters.priority && { priority: { in: filters.priority } }),
         ...(filters.projectId && { projectId: filters.projectId }),
@@ -55,7 +54,7 @@ export class IssuesService {
 
   async getIssue(issueId: string) {
     const issue = await this.prisma.issue.findUnique({
-      where: { id: issueId, deletedAt: null },
+      where: { id: issueId },
       include: {
         author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         project: { select: { id: true, name: true, key: true } },
@@ -93,7 +92,7 @@ export class IssuesService {
 
   async addComment(dto: CreateCommentInput, authorId: string) {
     const issue = await this.prisma.issue.findUnique({
-      where: { id: dto.issueId, deletedAt: null }
+      where: { id: dto.issueId }
     });
 
     if (!issue) throw new NotFoundException('Issue not found');
@@ -153,7 +152,7 @@ export class IssuesService {
     // We'll fetch all comments for the issue and build the tree in memory or use include for one level
     // For simplicity and to support "deep" nesting as requested, we fetch all and build tree.
     const allComments = await this.prisma.comment.findMany({
-      where: { issueId, deletedAt: null },
+      where: { issueId },
       orderBy: { createdAt: 'asc' },
       include: {
         author: { select: { id: true, name: true, email: true, avatarUrl: true } }

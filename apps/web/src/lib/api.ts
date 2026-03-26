@@ -5,6 +5,24 @@ const api = axios.create({
   withCredentials: true, // Crucial for sending/receiving HttpOnly cookies
 });
 
+// Request interceptor to automatically inject Organization ID
+api.interceptors.request.use(
+  (config) => {
+    // Try to get orgId from localStorage
+    const orgId = localStorage.getItem('issueflow_org_id');
+    
+    // Only inject if it exists and wasn't manually provided
+    if (orgId && !config.headers['x-org-id']) {
+      config.headers['x-org-id'] = orgId;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 let isRefreshing = false;
 let failedQueue: any[] = [];
 

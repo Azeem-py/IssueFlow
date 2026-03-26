@@ -141,16 +141,9 @@ export function Layout({ children }: LayoutProps) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate leading-tight">{user?.name || 'User'}</p>
               <div className="flex items-center gap-2">
-                <select 
-                  value={user?.role} 
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="text-[10px] text-slate-500 bg-transparent border-none p-0 h-auto cursor-pointer focus:ring-0 uppercase font-bold tracking-wider"
-                >
-                  <option value="OWNER">Owner</option>
-                  <option value="ADMIN">Admin</option>
-                  <option value="MEMBER">Member</option>
-                  <option value="VIEWER">Viewer</option>
-                </select>
+                <span className="text-[10px] text-primary/70 uppercase font-black tracking-widest bg-primary/5 px-1.5 py-0.5 rounded leading-none">
+                  {user?.role?.toLowerCase()}
+                </span>
                 <button 
                   onClick={() => logout.mutate()}
                   className="text-slate-400 hover:text-rose-500 transition-colors p-0.5"

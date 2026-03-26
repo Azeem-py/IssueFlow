@@ -33,7 +33,6 @@ export class OrgsService {
     return this.prisma.organization.findMany({
       where: {
         members: { some: { userId } },
-        deletedAt: null,
       },
       include: {
         members: {
@@ -79,7 +78,7 @@ export class OrgsService {
 
   async getProjects(orgId: string) {
     return this.prisma.project.findMany({
-      where: { organizationId: orgId, deletedAt: null },
+      where: { organizationId: orgId },
       include: {
         issues: {
           select: {
@@ -159,7 +158,7 @@ export class OrgsService {
 
   async getMembers(orgId: string) {
     return this.prisma.member.findMany({
-      where: { organizationId: orgId, deletedAt: null },
+      where: { organizationId: orgId },
       include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
     });
   }

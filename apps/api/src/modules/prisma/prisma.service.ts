@@ -2,10 +2,12 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { softDeleteExtension } from './soft-delete.extension';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
+  private _extended: any;
 
   constructor() {
     const connectionString = process.env.DATABASE_URL;
@@ -20,12 +22,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       adapter,
       log: ['query', 'info', 'warn', 'error'],
     });
+
+    // Initialize the soft-delete extended client
+    this._extended = softDeleteExtension(this);
+
+    // Return a proxy that directs model access to the extended client
+    return new Proxy(this, {
+      get: (target, prop, receiver) => {
+        // If the property exists on the extended client (like a model name), use it
+        if (prop in target._extended) {
+          return target._extended[prop];
+        }
+        // Otherwise use the base PrismaService
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 
   async onModuleInit() {
     try {
       await this.$connect();
-      this.logger.log('Successfully connected to database with PrismaPg adapter');
+      this.logger.log('Successfully connected to database and initialized Soft-Delete Extension');
     } catch (error) {
       this.logger.error('Failed to connect to database', error);
       throw error;

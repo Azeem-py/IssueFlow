@@ -10,9 +10,7 @@ export function useDashboardQueries() {
     queryKey: ['dashboard-stats', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg?.id) return { baseStats: [], advancedStats: [] };
-      const { data } = await api.get('/dashboard', {
-        headers: { 'x-org-id': currentOrg.id },
-      });
+      const { data } = await api.get('/dashboard');
       return data;
     },
     enabled: !!currentOrg?.id,
@@ -23,22 +21,19 @@ export function useDashboardQueries() {
     queryKey: ['activity-feed', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg?.id) return [];
-      const { data } = await api.get('/activity', {
-        headers: { 'x-org-id': currentOrg.id },
-      });
+      const { data } = await api.get('/activity');
       return data;
     },
     enabled: !!currentOrg?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: 'always', // Force refetch on mount as requested
   });
 
   const useAuditLogs = () => useQuery<IActivityLog[]>({
     queryKey: ['audit-logs', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg?.id) return [];
-      const { data } = await api.get('/activity/audit', {
-        headers: { 'x-org-id': currentOrg.id },
-      });
+      const { data } = await api.get('/activity/audit');
       return data;
     },
     enabled: !!currentOrg?.id,

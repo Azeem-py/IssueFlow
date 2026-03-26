@@ -301,9 +301,7 @@ export function IssueDetails() {
     queryKey: ['org-members', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg?.id) return [];
-      const { data } = await api.get(`/organizations/${currentOrg.id}/members`, {
-        headers: { 'x-org-id': currentOrg.id }
-      });
+      const { data } = await api.get(`/organizations/${currentOrg.id}/members`);
       return data;
     },
     enabled: !!currentOrg?.id,

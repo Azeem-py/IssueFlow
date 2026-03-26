@@ -20,6 +20,11 @@ export function Issues() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<IssueStatus | undefined>();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<{
+    status: IssueStatus[];
+    priority: IssuePriority[];
+  }>({ status: [], priority: [] });
 
   const openCreateModal = (status?: IssueStatus) => {
     setSelectedStatus(status);
@@ -36,6 +41,18 @@ export function Issues() {
     }
   };
 
+  // Improved filtering logic
+  const filteredIssues = issues.filter(issue => {
+    const matchesSearch = 
+      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (issue as any).project?.key.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = activeFilters.status.length === 0 || activeFilters.status.includes(issue.status);
+    const matchesPriority = activeFilters.priority.length === 0 || activeFilters.priority.includes(issue.priority);
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
   if (!currentOrg) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
@@ -51,31 +68,68 @@ export function Issues() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Sub-header / Filter Bar */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2 md:gap-4 font-display">
-          <h1 className="text-xl md:text-2xl font-black tracking-tighter mr-2 uppercase text-primary">Issues</h1>
-          <button className="flex items-center gap-2 text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-card-dark px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-600">
-            <span className="material-symbols-outlined text-sm md:text-lg">filter_list</span>
-            Filters
-          </button>
-          <button className="flex items-center gap-2 text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-card-dark px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-600">
-            <span className="material-symbols-outlined text-sm md:text-lg">swap_vert</span>
-            Sort
+      <div className="mb-8 flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-4xl font-black tracking-[0.2em] uppercase text-primary font-display italic">Issues</h1>
+          <button 
+            onClick={() => openCreateModal()}
+            className="w-full md:w-auto bg-primary text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-3 hover:-translate-y-0.5"
+          >
+            <span className="material-symbols-outlined text-sm md:text-xl">add_circle</span>
+            New Task
           </button>
         </div>
-        <button 
-          onClick={() => openCreateModal()}
-          className="w-full sm:w-auto bg-primary text-white px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-sm md:text-lg">add</span>
-          New Issue
-        </button>
+
+        {/* Global Action Bar */}
+        <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 p-2 rounded-2xl flex flex-col lg:flex-row items-stretch lg:items-center gap-2 shadow-sm">
+          <div className="relative flex-1 group">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+            <input 
+              type="text" 
+              placeholder="Search by title or project key..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent border-none focus:ring-4 focus:ring-primary/5 pl-12 pr-4 py-3 text-sm font-medium rounded-xl outline-none"
+            />
+          </div>
+          
+          <div className="h-px lg:h-8 w-full lg:w-px bg-slate-100 dark:bg-slate-800"></div>
+          
+          <div className="flex items-center gap-2 px-2">
+             <div className="flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1.5 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+               {Object.values(IssuePriority).map((p) => (
+                  <button 
+                    key={p}
+                    onClick={() => {
+                      setActiveFilters(prev => ({
+                        ...prev,
+                        priority: prev.priority.includes(p) ? prev.priority.filter(x => x !== p) : [...prev.priority, p]
+                      }));
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                      activeFilters.priority.includes(p) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {p}
+                  </button>
+               ))}
+             </div>
+             { (activeFilters.priority.length > 0 || searchQuery) && (
+                <button 
+                  onClick={() => { setSearchQuery(''); setActiveFilters({ status: [], priority: [] }); }}
+                  className="size-8 flex items-center justify-center text-slate-400 hover:text-primary transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+             )}
+          </div>
+        </div>
       </div>
 
       {/* Main Kanban Board Area */}
-      <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar flex-1 min-h-0">
+      <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar flex-1 min-h-0 px-1">
         {COLUMNS.map((column) => {
-          const columnIssues = issues.filter(i => i.status === column.id);
+          const columnIssues = filteredIssues.filter(i => i.status === column.id);
           
           return (
             <div key={column.id} className="w-80 flex flex-col gap-4 flex-shrink-0">
