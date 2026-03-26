@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { UserRole } from '@issueflow/types';
 import { Response } from 'express';
 import { EmailService } from '../email/email.service';
@@ -24,7 +25,7 @@ export class AuthService {
       return { message: 'If an account exists with this email, you will receive an OTP shortly.' };
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await this.prisma.user.update({
@@ -122,6 +123,7 @@ export class AuthService {
         secure: isProduction,
         sameSite: isProduction ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000, // 15 mins
+        path: '/',
       });
 
       // Refresh Token (long-lived)
@@ -141,12 +143,23 @@ export class AuthService {
           secure: isProduction,
           sameSite: isProduction ? 'none' : 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
+      } else {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { refreshToken: null },
+        });
+        response.clearCookie('refresh_token', {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: isProduction ? 'none' : 'lax',
+          path: '/',
         });
       }
     }
 
     return {
-      access_token,
       user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl },
     };
   }
@@ -158,14 +171,24 @@ export class AuthService {
       });
 
       const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user || !user.refreshToken) throw new BadRequestException('Invalid refresh token');
+      if (!user || !user.refreshToken) throw new UnauthorizedException('Invalid refresh token');
 
       const isMatch = await bcrypt.compare(refreshToken, user.refreshToken);
-      if (!isMatch) throw new BadRequestException('Invalid refresh token');
+      if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
 
       const newPayload = { email: user.email, sub: user.id };
       const access_token = this.jwtService.sign(newPayload, {
         expiresIn: '15m',
+      });
+
+      const new_refresh_token = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret',
+      });
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken: await bcrypt.hash(new_refresh_token, 10) },
       });
 
       const isProduction = this.configService.get('NODE_ENV') === 'production';
@@ -175,11 +198,20 @@ export class AuthService {
         secure: isProduction,
         sameSite: isProduction ? 'none' : 'lax',
         maxAge: 15 * 60 * 1000,
+        path: '/',
       });
 
-      return { access_token };
+      response.cookie('refresh_token', new_refresh_token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
+      });
+
+      return { message: 'Token refreshed' };
     } catch (e) {
-      throw new BadRequestException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
@@ -194,6 +226,7 @@ export class AuthService {
       httpOnly: true,
       secure: isProduction,
       sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
     };
     
     response.clearCookie('access_token', cookieOptions);

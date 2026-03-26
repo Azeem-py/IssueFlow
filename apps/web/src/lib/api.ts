@@ -49,6 +49,13 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(error, null); // Pass original 401 error
+
+        // If refresh fails, we should logout the user locally and redirect to login
+        // to avoid infinite loops and bad states.
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+
         return Promise.reject(error); // Reject with original error
       } finally {
         isRefreshing = false;

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Res, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Res, Req, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -36,7 +36,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   async refresh(@Req() req: any, @Res({ passthrough: true }) response: Response) {
     const refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) throw new BadRequestException('Refresh token missing');
+    if (!refreshToken) throw new UnauthorizedException('Refresh token missing');
     return this.authService.refreshTokens(refreshToken, response);
   }
 
