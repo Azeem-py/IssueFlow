@@ -28,12 +28,14 @@ export interface IUser {
   id: string;
   email: string;
   name?: string;
+  avatarUrl?: string;
 }
 
 export interface IOrganization {
   id: string;
   name: string;
   slug: string;
+  logoUrl?: string;
 }
 
 export interface IProject {
@@ -41,6 +43,7 @@ export interface IProject {
   name: string;
   key: string;
   organizationId: string;
+  logoUrl?: string;
 }
 
 export interface IIssue {
@@ -72,16 +75,19 @@ export interface RegisterInput {
 export interface LoginInput {
   email: string;
   password?: string;
+  rememberMe?: boolean;
 }
 
 export interface CreateOrgInput {
   name: string;
   slug: string;
+  logoUrl?: string;
 }
 
 export interface CreateProjectInput {
   name: string;
   key: string;
+  logoUrl?: string;
 }
 
 export interface CreateIssueInput {
@@ -114,6 +120,7 @@ export interface CreateCommentInput {
   content: string;
   issueId: string;
   parentId?: string;
+  mentions?: string[];
 }
 
 export interface IComment {
@@ -135,4 +142,60 @@ export interface CreateInviteInput {
 
 export interface AcceptInviteInput {
   token: string;
+}
+
+export interface IDashboardStat {
+  label: string;
+  value: string;
+  change: string;
+  icon: string;
+  color: string;
+  bg: string;
+  unit?: string;
+}
+
+export interface IDashboardStats {
+  baseStats: IDashboardStat[];
+  advancedStats: IDashboardStat[];
+}
+
+export interface IActivityLog {
+  id: string;
+  action: string;
+  organizationId: string;
+  userId: string;
+  issueId?: string;
+  projectId?: string;
+  metadata?: any;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface INotification {
+  id: string;
+  type: string;
+  read: boolean;
+  userId: string;
+  actorId: string;
+  issueId?: string;
+  commentId?: string;
+  organizationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  actor?: IUser;
+  issue?: IIssue;
+  comment?: IComment;
+}
+
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
 }

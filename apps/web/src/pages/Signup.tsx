@@ -6,9 +6,11 @@ import { UserRole } from '@issueflow/types';
 export function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.MEMBER);
   const [secretCode, setSecretCode] = useState('');
+  const [showSecretCode, setShowSecretCode] = useState(false);
   const [error, setError] = useState('');
   
   const { register } = useAuthQueries();
@@ -93,13 +95,21 @@ export function Signup() {
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">lock</span>
                   <input 
-                    type="password" 
+                    type={showPassword ? "text" : "password"} 
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
+                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-12 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-primary transition-colors"
+                    tabIndex={-1}
+                  >
+                    <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -126,13 +136,21 @@ export function Signup() {
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">key</span>
                   <input 
-                    type="password" 
+                    type={showSecretCode ? "text" : "password"} 
                     required
                     value={secretCode}
                     onChange={(e) => setSecretCode(e.target.value)}
-                    className="w-full bg-primary/10 border border-primary/30 rounded-xl pl-12 pr-4 py-3 text-primary outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-primary/40"
+                    className="w-full bg-primary/10 border border-primary/30 rounded-xl pl-12 pr-12 py-3 text-primary outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-primary/40"
                     placeholder="Enter registration code"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowSecretCode(!showSecretCode)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors"
+                    tabIndex={-1}
+                  >
+                    <span className="material-symbols-outlined text-xl">{showSecretCode ? 'visibility_off' : 'visibility'}</span>
+                  </button>
                 </div>
                 <p className="mt-2 text-[10px] text-primary/60 px-1 font-medium italic">Contact workspace owner for this code</p>
               </div>

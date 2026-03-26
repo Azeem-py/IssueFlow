@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserRole } from '@issueflow/types';
 import { useAuthQueries } from '../hooks/useAuthQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface User {
   id: string;
@@ -8,6 +9,7 @@ interface User {
   email: string;
   role: UserRole;
   img?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -16,6 +18,7 @@ interface AuthContextType {
   setCurrentOrg: (org: any) => void;
   isLoading: boolean;
   setRole: (role: UserRole) => void; // Keep for UI testing
+  refreshUser: () => Promise<void>;
 }
 
 // Keep mock images for better UI feel even with real data
@@ -29,8 +32,12 @@ const MOCK_IMAGES: Record<string, string> = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const { useMe, useOrganizations } = useAuthQueries();
-  const { data: apiUser, isLoading: isUserLoading } = useMe();
+  
+  // Use a try-catch pattern within the hook usage if possible, 
+  // but TanStack query usually returns error states instead of throwing.
+  const { data: apiUser, isLoading: isUserLoading, error: userError } = useMe();
   const { data: organizations, isLoading: isOrgsLoading } = useOrganizations();
   
   // Local state for role switching (useful for UI testing)
@@ -39,9 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (apiUser) {
+      // Cast apiUser to include role if it's returning from API
+      const userWithRole = apiUser as any;
+      const role = userWithRole.role || 'MEMBER';
       setActiveUser({
         ...apiUser,
-        img: MOCK_IMAGES[apiUser.role] || MOCK_IMAGES.MEMBER
+        role: role as UserRole,
+        img: MOCK_IMAGES[role] || MOCK_IMAGES.MEMBER,
+        name: apiUser.name || '',
       });
     } else {
       setActiveUser(null);
@@ -49,8 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [apiUser]);
 
   useEffect(() => {
-    if (organizations && organizations.length > 0 && !currentOrg) {
-      setCurrentOrg(organizations[0]);
+    if (organizations && organizations.length > 0) {
+      if (!currentOrg) {
+        setCurrentOrg(organizations[0]);
+      } else {
+        const updatedOrg = organizations.find((o: any) => o.id === currentOrg.id);
+        if (updatedOrg) {
+          setCurrentOrg(updatedOrg);
+        }
+      }
     }
   }, [organizations, currentOrg]);
 
@@ -60,8 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['me'] }),
+      queryClient.invalidateQueries({ queryKey: ['organizations'] })
+    ]);
+  };
+
+  const isLoading = isUserLoading || isOrgsLoading;
+
   return (
-    <AuthContext.Provider value={{ user: activeUser, currentOrg, setCurrentOrg, isLoading: isUserLoading || isOrgsLoading, setRole }}>
+    <AuthContext.Provider value={{ user: activeUser, currentOrg, setCurrentOrg, isLoading, setRole, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

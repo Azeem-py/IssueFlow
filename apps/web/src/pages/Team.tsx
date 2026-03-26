@@ -3,18 +3,37 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { useOrgQueries } from '../hooks/useOrgQueries';
 import { UserRole } from '@issueflow/types';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function Team() {
   const { user, currentOrg } = useAuth();
   const { canInviteMembers, canManageProjects, canCreateIssues, isOwner, isAdmin, isViewer } = usePermissions();
-  const { useMembers, useInvites, createInvite } = useOrgQueries();
+  const { useMembers, useInvites, useMyInvites, createInvite, updateMemberRole, removeMember, revokeInvite, acceptInvite, declineInvite } = useOrgQueries();
   
   const { data: members = [], isLoading: isLoadingMembers } = useMembers();
   const { data: invites = [], isLoading: isLoadingInvites } = useInvites();
+  const { data: myInvites = [], isLoading: isLoadingMyInvites } = useMyInvites();
 
+  const [activeTab, setActiveTab] = useState<'members' | 'received'>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.MEMBER);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+
+  // Confirmation modal states
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'info'
+  });
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +45,49 @@ export function Team() {
     } catch (error) {
       console.error('Failed to invite member:', error);
     }
+  };
+
+  const handleUpdateRole = async (memberId: string, role: UserRole) => {
+    try {
+      await updateMemberRole.mutateAsync({ memberId, role });
+      setEditingMemberId(null);
+    } catch (error) {
+      console.error('Failed to update role:', error);
+    }
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Team Member',
+      message: 'Are you sure you want to remove this member? They will lose access to all projects and issues in this workspace.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await removeMember.mutateAsync(memberId);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Failed to remove member:', error);
+        }
+      }
+    });
+  };
+
+  const handleRevokeInvite = (inviteId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Revoke Invitation',
+      message: 'Are you sure you want to revoke this invitation? The invite link will no longer work.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await revokeInvite.mutateAsync(inviteId);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Failed to revoke invite:', error);
+        }
+      }
+    });
   };
 
   if (!currentOrg) {
@@ -58,87 +120,245 @@ export function Team() {
         </div>
         <p className="text-slate-500 mb-8">Manage your team members and their workspace permissions.</p>
 
-        {/* Members Table */}
-        <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {isLoadingMembers ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
-                  </tr>
-                ))
-              ) : (
-                members.map((member) => (
-                  <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                          {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1 mb-6 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
+          <button 
+            onClick={() => setActiveTab('members')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'members' 
+                ? 'bg-white dark:bg-card-dark text-primary shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Team Members
+          </button>
+          <button 
+            onClick={() => setActiveTab('received')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'received' 
+                ? 'bg-white dark:bg-card-dark text-primary shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Received Invitations
+            {myInvites.length > 0 && (
+              <span className="size-5 bg-primary text-white text-[10px] flex items-center justify-center rounded-full">
+                {myInvites.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'members' ? (
+          /* Members Table */
+          <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {isLoadingMembers ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
+                    </tr>
+                  ))
+                ) : (
+                  members.map((member) => (
+                    <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden shrink-0">
+                            {member.user.avatarUrl ? (
+                              <img src={member.user.avatarUrl} className="size-full object-cover" alt="" />
+                            ) : (
+                              member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <span className="font-medium text-sm">{member.user.name || 'Invited User'}</span>
                         </div>
-                        <span className="font-medium text-sm">{member.user.name || 'Invited User'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">{member.user.email}</td>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{member.user.email}</td>
+                      <td className="px-6 py-4">
+                        {editingMemberId === member.id ? (
+                          <select 
+                            value={member.role}
+                            onChange={(e) => handleUpdateRole(member.id, e.target.value as UserRole)}
+                            onBlur={() => setEditingMemberId(null)}
+                            autoFocus
+                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            <option value={UserRole.MEMBER}>MEMBER</option>
+                            <option value={UserRole.ADMIN}>ADMIN</option>
+                            <option value={UserRole.VIEWER}>VIEWER</option>
+                          </select>
+                        ) : (
+                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
+                            member.role === UserRole.OWNER 
+                              ? 'bg-primary/10 text-primary border-primary/20' 
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                          }`}>
+                            {member.role}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                          <span className="size-1.5 rounded-full bg-emerald-500"></span>
+                          Active
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {isOwner && member.user.id !== user?.id && member.role !== UserRole.OWNER && (
+                            <>
+                              <button 
+                                onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)}
+                                className="text-slate-400 hover:text-white transition-colors p-1"
+                                title="Change Role"
+                              >
+                                <span className="material-symbols-outlined text-lg">settings</span>
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveMember(member.id)}
+                                className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                                title="Remove Member"
+                              >
+                                <span className="material-symbols-outlined text-lg">person_remove</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+                
+                {/* Outgoing Invitations Section */}
+                {invites.map((invite) => (
+                  <tr key={invite.id} className="bg-amber-500/5 border-l-4 border-l-amber-500/50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-400 italic">Outgoing Invitation</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">{invite.email}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
-                        member.role === UserRole.OWNER 
-                          ? 'bg-primary/10 text-primary border-primary/20' 
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                      }`}>
-                        {member.role}
+                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        {invite.role}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                        <span className="size-1.5 rounded-full bg-emerald-500"></span>
-                        Active
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
+                        <span className="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Pending
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right text-slate-400">
-                      {isOwner && member.user.id !== user?.id && (
-                        <button className="hover:text-white transition-colors">
-                          <span className="material-symbols-outlined text-lg">settings</span>
+                    <td className="px-6 py-4 text-right">
+                      {(isOwner || isAdmin) && (
+                        <button 
+                          onClick={() => handleRevokeInvite(invite.id)}
+                          className="text-xs font-bold text-rose-500 hover:underline"
+                        >
+                          Revoke
                         </button>
                       )}
                     </td>
                   </tr>
-                ))
-              )}
-              
-              {/* Invitations Section */}
-              {invites.map((invite) => (
-                <tr key={invite.id} className="bg-amber-500/5 border-l-4 border-l-amber-500/50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-400 italic">Pending Invitation</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{invite.email}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      {invite.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
-                      <span className="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                      Pending
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-xs font-bold text-rose-500 hover:underline">Revoke</button>
-                  </td>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Received Invitations Table */
+          <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Organization</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Invited By</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {isLoadingMyInvites ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
+                    </tr>
+                  ))
+                ) : myInvites.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      No invitations received yet.
+                    </td>
+                  </tr>
+                ) : (
+                  myInvites.map((invite) => (
+                    <tr key={invite.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                            {invite.organization.logoUrl ? (
+                              <img src={invite.organization.logoUrl} className="size-full object-cover rounded-lg" alt="" />
+                            ) : (
+                              invite.organization.name.charAt(0)
+                            )}
+                          </div>
+                          <span className="font-bold text-sm">{invite.organization.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 overflow-hidden shrink-0">
+                            {invite.inviter.avatarUrl ? (
+                              <img src={invite.inviter.avatarUrl} className="size-full object-cover" alt="" />
+                            ) : (
+                              (invite.inviter.name || invite.inviter.email).charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                            {invite.inviter.name || invite.inviter.email}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          {invite.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {new Date(invite.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button 
+                            onClick={() => declineInvite.mutate(invite.id)}
+                            disabled={declineInvite.isPending}
+                            className="text-xs font-bold text-slate-500 hover:text-rose-500 transition-colors"
+                          >
+                            Decline
+                          </button>
+                          <button 
+                            onClick={() => acceptInvite.mutate(invite.token)}
+                            disabled={acceptInvite.isPending}
+                            className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+                          >
+                            Accept
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Right Sidebar: Permissions Preview */}
@@ -258,6 +478,18 @@ export function Team() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        confirmText={confirmModal.type === 'danger' ? 'Delete' : 'Confirm'}
+        isLoading={removeMember.isPending || revokeInvite.isPending}
+      />
     </div>
   );
 }

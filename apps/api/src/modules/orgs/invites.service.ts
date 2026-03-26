@@ -2,26 +2,44 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, CreateInviteInput } from '@issueflow/types';
 import * as crypto from 'crypto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class InvitesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService
+  ) {}
 
   async createInvite(orgId: string, inviterId: string, dto: CreateInviteInput) {
+    const email = dto.email.toLowerCase();
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-    return this.prisma.invitation.create({
-      data: {
-        email: dto.email,
-        token,
-        role: dto.role as any,
-        organizationId: orgId,
-        inviterId,
-        expiresAt,
-      },
-    });
+    const [org, inviter, invite] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: orgId } }),
+      this.prisma.user.findUnique({ where: { id: inviterId } }),
+      this.prisma.invitation.create({
+        data: {
+          email,
+          token,
+          role: dto.role as any,
+          organizationId: orgId,
+          inviterId,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    if (!org || !inviter) {
+      throw new NotFoundException('Organization or Inviter not found');
+    }
+
+    // Send the email in background (don't wait for it if not necessary)
+    this.emailService.sendInvitationEmail(email, org.name, inviter.name || inviter.email, token);
+
+    return invite;
   }
 
   async acceptInvite(token: string, userId: string) {
@@ -31,6 +49,13 @@ export class InvitesService {
     });
 
     if (!invite) throw new NotFoundException('Invitation not found');
+    
+    // Safety check: ensure current user email matches invite email
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new BadRequestException('This invitation was sent to a different email address');
+    }
+
     if (invite.acceptedAt) throw new BadRequestException('Invitation already accepted');
     if (invite.expiresAt < new Date()) throw new BadRequestException('Invitation expired');
 
@@ -64,7 +89,47 @@ export class InvitesService {
   async getInvites(orgId: string) {
     return this.prisma.invitation.findMany({
       where: { organizationId: orgId, acceptedAt: null },
+      include: { inviter: { select: { name: true, email: true, avatarUrl: true } } },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMyInvitations(email: string) {
+    return this.prisma.invitation.findMany({
+      where: { email: email.toLowerCase(), acceptedAt: null },
+      include: { 
+        organization: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        inviter: { select: { id: true, name: true, email: true, avatarUrl: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async revokeInvite(orgId: string, inviteId: string) {
+    const invite = await this.prisma.invitation.findUnique({
+      where: { id: inviteId },
+    });
+
+    if (!invite || invite.organizationId !== orgId) {
+      throw new NotFoundException('Invitation not found in this organization');
+    }
+
+    return this.prisma.invitation.delete({
+      where: { id: inviteId },
+    });
+  }
+
+  async declineInvite(inviteId: string, email: string) {
+    const invite = await this.prisma.invitation.findUnique({
+      where: { id: inviteId },
+    });
+
+    if (!invite || invite.email.toLowerCase() !== email.toLowerCase()) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    return this.prisma.invitation.delete({
+      where: { id: inviteId },
     });
   }
 }

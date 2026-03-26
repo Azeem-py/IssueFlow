@@ -22,6 +22,8 @@ IssueFlow is a high-performance, multi-tenant issue tracking system. It is desig
 
 ## Building and Running
 
+> **IMPORTANT:** Do NOT run `pnpm build` unless specifically requested by the user.
+
 ### Root Commands
 - **Install Dependencies:** `pnpm install`
 - **Development Mode:** `pnpm dev` (Runs both API and Web)

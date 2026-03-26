@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useIssueQueries } from '../hooks/useIssueQueries';
 import { IssueStatus, IssuePriority, IComment, UserRole } from '@issueflow/types';
@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import api from '../lib/api';
+import { useQuery } from '@tanstack/react-query';
 
 const THREAD_COLORS = [
   'border-primary/40',
@@ -15,6 +17,39 @@ const THREAD_COLORS = [
   'border-indigo-500/40',
 ];
 
+function MarkdownRenderer({ content, members }: { content: string, members?: any[] }) {
+  let displayContent = content || '';
+  if (members && members.length > 0) {
+    const sortedNames = [...members]
+      .map(m => m.user.name || m.user.email)
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+      
+    sortedNames.forEach(name => {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(@${escaped})(?!\\]\\(#mention\\))`, 'g');
+      displayContent = displayContent.replace(regex, `[$1](#mention)`);
+    });
+  }
+
+  return (
+    <ReactMarkdown 
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({node, href, children, ...props}) => {
+          if (href === '#mention') {
+            return <span className="text-primary font-black bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/25 shadow-sm inline-block leading-none align-baseline">{children}</span>;
+          }
+           // Type assertion needed because react-markdown typings can be strict
+          return <a href={href!} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold" {...(props as any)}>{children}</a>;
+        }
+      }}
+    >
+      {displayContent}
+    </ReactMarkdown>
+  );
+}
+
 interface CommentItemProps {
   comment: any;
   issueId: string;
@@ -23,18 +58,125 @@ interface CommentItemProps {
   issueAuthorId?: string;
 }
 
-function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: CommentItemProps) {
+interface MentionTextareaProps {
+  value: string;
+  onChange: (val: string, mentions: string[]) => void;
+  placeholder?: string;
+  members: any[];
+  autoFocus?: boolean;
+}
+
+function MentionTextarea({ value, onChange, placeholder, members, autoFocus }: MentionTextareaProps) {
+  const [mentionSearch, setMentionSearch] = useState<string | null>(null);
+  const [localMentions, setLocalMentions] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    onChange(val, localMentions); // Pass up change
+    
+    const cursor = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
+    
+    // Better regex for matching @ mentions anywhere in text
+    const match = textBeforeCursor.match(/(?:^|\s)@(\w*)$/);
+    if (match) {
+      setMentionSearch(match[1].toLowerCase());
+    } else {
+      setMentionSearch(null);
+    }
+  };
+
+  const handleMentionSelect = (member: any) => {
+    if (!textareaRef.current) return;
+    const val = value;
+    const cursor = textareaRef.current.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
+    
+    const match = textBeforeCursor.match(/(?:^|\s)@(\w*)$/);
+    if (!match) return;
+    
+    // Replace the specific match
+    const replaceStr = `@${member.user.name || member.user.email} `;
+    // match.index is the index of the space or the start of the string, plus the '@' match
+    // So we slice up to the match index, keeping any leading space
+    const leadingWhitespace = match[0].startsWith(' ') || match[0].startsWith('\n') ? match[0][0] : '';
+    const startIdx = textBeforeCursor.lastIndexOf(match[0]);
+    
+    const newTextBefore = textBeforeCursor.slice(0, startIdx) + leadingWhitespace + replaceStr;
+    const newText = newTextBefore + val.slice(cursor);
+    
+    const newMentions = Array.from(new Set([...localMentions, member.userId]));
+    setLocalMentions(newMentions);
+    onChange(newText, newMentions);
+    setMentionSearch(null);
+    
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newCursorPos = newTextBefore.length;
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
+  const filteredMembers = mentionSearch !== null 
+    ? members.filter((m: any) => (m.user.name || m.user.email).toLowerCase().includes(mentionSearch))
+    : [];
+
+  return (
+    <div className="relative w-full">
+      <textarea 
+        ref={textareaRef}
+        autoFocus={autoFocus}
+        value={value}
+        onChange={handleTextareaChange}
+        className="w-full bg-transparent border-none text-slate-900 dark:text-slate-100 p-5 focus:ring-0 min-h-[160px] placeholder:text-slate-500 outline-none text-sm leading-relaxed resize-none" 
+        placeholder={placeholder}
+      ></textarea>
+      
+      {/* Mention Autocomplete Dropdown */}
+      {mentionSearch !== null && filteredMembers.length > 0 && (
+        <div className="absolute z-[9999] w-64 max-h-48 overflow-y-auto bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl -mt-10 ml-4">
+          {filteredMembers.map((member: any) => (
+            <button
+              key={member.id}
+              type="button"
+              onClick={() => handleMentionSelect(member)}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm transition-colors text-left"
+            >
+              <div className="size-6 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
+                {member.user.avatarUrl ? (
+                  <img src={member.user.avatarUrl} alt="" className="size-full object-cover" />
+                ) : (
+                  <div className="size-full flex items-center justify-center font-bold text-[10px]">
+                    {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <span className="font-semibold truncate">{member.user.name || member.user.email}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId, members }: CommentItemProps & { members: any[] }) {
   const { isViewer } = usePermissions();
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setCommentContent] = useState('');
+  const [selectedMentions, setSelectedMentions] = useState<string[]>([]);
   const { addComment } = useIssueQueries();
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyContent.trim()) return;
     try {
-      await addComment.mutateAsync({ issueId, content: replyContent, parentId: comment.id });
+      await addComment.mutateAsync({ issueId, content: replyContent, parentId: comment.id, mentions: selectedMentions });
       setCommentContent('');
+      setSelectedMentions([]);
       setIsReplying(false);
     } catch (error) {
       console.error('Failed to add reply:', error);
@@ -51,7 +193,11 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
           {/* Avatar with Ring */}
           <div className="relative shrink-0">
             <div className={`size-8 md:size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold border-2 ${isAuthor ? 'border-primary/50' : 'border-transparent'} overflow-hidden shadow-sm`}>
-               {comment.author?.name?.charAt(0) || comment.author?.email?.charAt(0).toUpperCase()}
+               {comment.author?.avatarUrl ? (
+                 <img src={comment.author.avatarUrl} className="size-full object-cover" alt="" />
+               ) : (
+                 comment.author?.name?.charAt(0) || comment.author?.email?.charAt(0).toUpperCase()
+               )}
             </div>
             {isAuthor && (
               <div className="absolute -bottom-1 -right-1 size-4 bg-primary rounded-full border-2 border-white dark:border-background-dark flex items-center justify-center shadow-sm">
@@ -83,7 +229,7 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
               )}
             </div>
             <div className="p-4 text-sm text-slate-600 dark:text-slate-300 prose dark:prose-invert prose-sm max-w-none leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.content}</ReactMarkdown>
+              <MarkdownRenderer content={comment.content} members={members} />
             </div>
           </div>
         </div>
@@ -92,13 +238,13 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
       {isReplying && (
         <form onSubmit={handleReply} className="ml-12 mt-2">
           <div className="bg-white dark:bg-card-dark border-2 border-primary/30 rounded-2xl overflow-hidden shadow-2xl shadow-primary/10 animate-in slide-in-from-top-2 duration-200">
-            <textarea 
+            <MentionTextarea 
               autoFocus
               value={replyContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              className="w-full bg-transparent border-none text-slate-900 dark:text-slate-100 p-4 text-sm focus:ring-0 min-h-[100px] placeholder:text-slate-500 outline-none resize-none" 
+              onChange={(val, mentions) => { setCommentContent(val); setSelectedMentions(mentions); }}
+              members={members}
               placeholder={`Write a reply to ${comment.author?.name || 'this user'}...`}
-            ></textarea>
+            />
             <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
               <button 
                 type="button"
@@ -130,6 +276,7 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
               onReply={onReply} 
               depth={depth + 1} 
               issueAuthorId={issueAuthorId}
+              members={members}
             />
           ))}
         </div>
@@ -140,7 +287,7 @@ function CommentItem({ comment, issueId, onReply, depth = 0, issueAuthorId }: Co
 
 export function IssueDetails() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, currentOrg } = useAuth();
   const { canEditOwnIssues, canManageGlobalIssues, isViewer } = usePermissions();
   const { useIssue, useComments, addComment, deleteIssue, updateIssue } = useIssueQueries();
   
@@ -148,13 +295,27 @@ export function IssueDetails() {
   const { data: comments = [], isLoading: isLoadingComments } = useComments(id);
   
   const [commentContent, setCommentContent] = useState('');
+  const [selectedMentions, setSelectedMentions] = useState<string[]>([]);
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['org-members', currentOrg?.id],
+    queryFn: async () => {
+      if (!currentOrg?.id) return [];
+      const { data } = await api.get(`/organizations/${currentOrg.id}/members`, {
+        headers: { 'x-org-id': currentOrg.id }
+      });
+      return data;
+    },
+    enabled: !!currentOrg?.id,
+  });
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !commentContent.trim()) return;
     try {
-      await addComment.mutateAsync({ issueId: id, content: commentContent });
+      await addComment.mutateAsync({ issueId: id, content: commentContent, mentions: selectedMentions });
       setCommentContent('');
+      setSelectedMentions([]);
     } catch (error) {
       console.error('Failed to add comment:', error);
     }
@@ -230,8 +391,12 @@ export function IssueDetails() {
           
           <div className="flex items-center justify-between py-2 border-y border-slate-100 dark:border-slate-800/50 mt-6">
             <div className="flex items-center gap-3">
-               <div className="size-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs">
-                 {((issue as any).author?.name || (issue as any).author?.email).charAt(0).toUpperCase()}
+               <div className="size-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                 {(issue as any).author?.avatarUrl ? (
+                   <img src={(issue as any).author.avatarUrl} className="size-full object-cover" alt="" />
+                 ) : (
+                   ((issue as any).author?.name || (issue as any).author?.email).charAt(0).toUpperCase()
+                 )}
                </div>
                <div>
                  <p className="text-xs font-bold">{(issue as any).author?.name || (issue as any).author?.email}</p>
@@ -252,7 +417,7 @@ export function IssueDetails() {
             <div className="absolute -left-4 top-0 bottom-0 w-1 bg-primary/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="prose dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed text-base">
               {issue.description ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
+                <MarkdownRenderer content={issue.description} members={members} />
               ) : (
                 <span className="text-slate-500 italic">No description provided.</span>
               )}
@@ -291,8 +456,9 @@ export function IssueDetails() {
                     key={comment.id} 
                     comment={comment} 
                     issueId={id!} 
-                    onReply={(pid) => console.log('Reply to', pid)}
+                    onReply={(pid: string) => console.log('Reply to', pid)}
                     issueAuthorId={issue.authorId}
+                    members={members}
                   />
                 ))}
               </div>
@@ -309,8 +475,12 @@ export function IssueDetails() {
                 <h3 className="text-lg font-bold tracking-tight">Post a comment</h3>
               </div>
               <form onSubmit={handleAddComment} className="flex gap-4 group">
-                <div className="size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner">
-                  <span className="material-symbols-outlined text-xl">person</span>
+                <div className="size-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 shadow-inner overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} className="size-full object-cover" alt="" />
+                  ) : (
+                    <span className="material-symbols-outlined text-xl">person</span>
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-[1.25rem] overflow-hidden shadow-sm group-focus-within:border-primary/50 group-focus-within:ring-4 group-focus-within:ring-primary/5 transition-all duration-300">
@@ -318,12 +488,13 @@ export function IssueDetails() {
                       <button type="button" className="text-[10px] font-black text-primary border-b-2 border-primary pb-1 uppercase tracking-wider">Markdown Editor</button>
                       <button type="button" className="text-[10px] font-bold text-slate-400 hover:text-slate-200 transition-colors uppercase tracking-wider">Preview</button>
                     </div>
-                    <textarea 
+                    <MentionTextarea 
                       value={commentContent}
-                      onChange={(e) => setCommentContent(e.target.value)}
-                      className="w-full bg-transparent border-none text-slate-900 dark:text-slate-100 p-5 focus:ring-0 min-h-[160px] placeholder:text-slate-500 outline-none text-sm leading-relaxed" 
-                      placeholder="Share your thoughts... Use **bold**, *italics*, or `code`"
-                    ></textarea>
+                      onChange={(val, mentions) => { setCommentContent(val); setSelectedMentions(mentions); }}
+                      members={members}
+                      placeholder="Share your thoughts... Use **bold**, *italics*, or type @ to mention someone"
+                    />
+
                     <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/20 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
                       <div className="flex items-center gap-4 text-slate-400">
                         <button type="button" className="hover:text-primary transition-colors"><span className="material-symbols-outlined text-lg">image</span></button>
@@ -391,8 +562,12 @@ export function IssueDetails() {
               <div className="flex items-center gap-3">
                 {(issue as any).assignee ? (
                   <>
-                    <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary border border-primary/20 shadow-sm">
-                      {(issue as any).assignee.name?.charAt(0) || (issue as any).assignee.email.charAt(0).toUpperCase()}
+                    <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary border border-primary/20 shadow-sm overflow-hidden">
+                      {(issue as any).assignee.avatarUrl ? (
+                        <img src={(issue as any).assignee.avatarUrl} className="size-full object-cover" alt="" />
+                      ) : (
+                        (issue as any).assignee.name?.charAt(0) || (issue as any).assignee.email.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-bold">{(issue as any).assignee.name || (issue as any).assignee.email}</p>

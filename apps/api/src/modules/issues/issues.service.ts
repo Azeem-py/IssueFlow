@@ -1,18 +1,23 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IssueSequenceService } from './issue-sequence.service';
+import { PushService } from '../notifications/push.service';
 import { CreateIssueInput, SearchFilters, CreateCommentInput } from '@issueflow/types';
 
 @Injectable()
 export class IssuesService {
+  private readonly logger = new Logger(IssuesService.name);
+
   constructor(
     private prisma: PrismaService,
-    private sequenceService: IssueSequenceService
+    private sequenceService: IssueSequenceService,
+    private pushService: PushService
   ) {}
 
   async createIssue(dto: CreateIssueInput, authorId: string) {
     // Atomic sequential numbering
     const shortId = await this.sequenceService.getNextShortId(dto.projectId);
+    this.logger.log(`Creating issue ${shortId} in project ${dto.projectId} by user ${authorId}`);
 
     return this.prisma.issue.create({
       data: {
@@ -41,9 +46,9 @@ export class IssuesService {
       },
       orderBy: { createdAt: 'desc' },
       include: { 
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         project: { select: { id: true, name: true, key: true } },
-        assignee: { select: { id: true, name: true, email: true } }
+        assignee: { select: { id: true, name: true, email: true, avatarUrl: true } }
       },
     });
   }
@@ -52,9 +57,9 @@ export class IssuesService {
     const issue = await this.prisma.issue.findUnique({
       where: { id: issueId, deletedAt: null },
       include: {
-        author: { select: { id: true, name: true, email: true } },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
         project: { select: { id: true, name: true, key: true } },
-        assignee: { select: { id: true, name: true, email: true } },
+        assignee: { select: { id: true, name: true, email: true, avatarUrl: true } },
         _count: { select: { comments: true } }
       }
     });
@@ -93,7 +98,9 @@ export class IssuesService {
 
     if (!issue) throw new NotFoundException('Issue not found');
 
-    return this.prisma.comment.create({
+    this.logger.log(`Adding comment to issue ${dto.issueId} by user ${authorId}`);
+
+    const newComment = await this.prisma.comment.create({
       data: {
         content: dto.content,
         issueId: dto.issueId,
@@ -101,9 +108,45 @@ export class IssuesService {
         parentId: dto.parentId,
       },
       include: {
-        author: { select: { id: true, name: true, email: true } }
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } }
       }
     });
+
+    if (dto.mentions && dto.mentions.length > 0) {
+      // Create notifications for each mentioned user (including self, per requirements)
+      const notificationData = dto.mentions.map((userId) => ({
+        type: 'MENTION',
+        userId,
+        actorId: authorId,
+        issueId: dto.issueId,
+        commentId: newComment.id,
+        organizationId: issue.organizationId,
+      }));
+
+      await this.prisma.notification.createMany({
+        data: notificationData,
+        skipDuplicates: true,
+      });
+
+      this.logger.log(`Created ${notificationData.length} mention notifications for comment ${newComment.id}`);
+      
+      // Trigger Web Push Notifications — use Promise.allSettled so errors in one
+      // notification don't block others, and we actually await all of them.
+      const mentionedOthers = dto.mentions.filter((userId) => userId !== authorId);
+      if (mentionedOthers.length > 0) {
+        await Promise.allSettled(
+          mentionedOthers.map((userId) =>
+            this.pushService.sendPushNotification(userId, {
+              title: 'You were mentioned in IssueFlow',
+              body: `${newComment.author?.name || 'Someone'} mentioned you in ${issue.shortId}`,
+              url: `/issues/${issue.shortId}`,
+            })
+          )
+        );
+      }
+    }
+
+    return newComment;
   }
 
   async getComments(issueId: string) {
@@ -113,7 +156,7 @@ export class IssuesService {
       where: { issueId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
       include: {
-        author: { select: { id: true, name: true, email: true } }
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } }
       }
     });
 

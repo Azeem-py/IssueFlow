@@ -19,6 +19,7 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Create issue mutation
@@ -70,6 +71,7 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!id && !!currentOrg?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Get comments for an issue
@@ -82,12 +84,14 @@ export function useIssueQueries() {
       return data;
     },
     enabled: !!issueId && !!currentOrg?.id,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
   });
 
   // Add comment mutation
   const addCommentMutation = useMutation({
-    mutationFn: async ({ issueId, content, parentId }: { issueId: string; content: string; parentId?: string }) => {
-      const { data } = await api.post(`/issues/${issueId}/comments`, { content, parentId }, {
+    mutationFn: async ({ issueId, content, parentId, mentions }: { issueId: string; content: string; parentId?: string; mentions?: string[] }) => {
+      const { data } = await api.post(`/issues/${issueId}/comments`, { content, parentId, mentions }, {
         headers: { 'x-org-id': currentOrg?.id },
       });
       return data;
