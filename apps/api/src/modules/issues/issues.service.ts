@@ -76,7 +76,10 @@ export class IssuesService {
   }
 
   async updateIssue(issueId: string, dto: any) {
-    return this.prisma.issue.update({
+    // Fetch current issue to detect assignee change
+    const current = await this.prisma.issue.findUnique({ where: { id: issueId } });
+
+    const updated = await this.prisma.issue.update({
       where: { id: issueId },
       data: {
         ...(dto.title && { title: dto.title }),
@@ -86,6 +89,20 @@ export class IssuesService {
         ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId || null }),
       },
     });
+
+    // Notify the newly assigned user (if assignee changed)
+    if (
+      dto.assigneeId &&
+      dto.assigneeId !== current?.assigneeId
+    ) {
+      await this.pushService.sendPushNotification(dto.assigneeId, {
+        title: 'You have been assigned an issue',
+        body: `Issue ${updated.shortId}: ${updated.title}`,
+        url: `/issues/${updated.shortId}`,
+      });
+    }
+
+    return updated;
   }
 
   // --- Comments ---
@@ -111,8 +128,9 @@ export class IssuesService {
       }
     });
 
+    // Handle @mentions (existing logic)
+    const mentionedOthers = (dto.mentions || []).filter((userId) => userId !== authorId);
     if (dto.mentions && dto.mentions.length > 0) {
-      // Create notifications for each mentioned user (including self, per requirements)
       const notificationData = dto.mentions.map((userId) => ({
         type: 'MENTION',
         userId,
@@ -127,17 +145,71 @@ export class IssuesService {
         skipDuplicates: true,
       });
 
-      this.logger.log(`Created ${notificationData.length} mention notifications for comment ${newComment.id}`);
-      
-      // Trigger Web Push Notifications — use Promise.allSettled so errors in one
-      // notification don't block others, and we actually await all of them.
-      const mentionedOthers = dto.mentions.filter((userId) => userId !== authorId);
       if (mentionedOthers.length > 0) {
         await Promise.allSettled(
           mentionedOthers.map((userId) =>
             this.pushService.sendPushNotification(userId, {
               title: 'You were mentioned in IssueFlow',
               body: `${newComment.author?.name || 'Someone'} mentioned you in ${issue.shortId}`,
+              url: `/issues/${issue.shortId}`,
+            })
+          )
+        );
+      }
+    }
+
+    // --- Feature #5: New Top-Level Comment (Notify All Org Members) ---
+    if (!dto.parentId) {
+      const members = await this.prisma.member.findMany({
+        where: { organizationId: issue.organizationId },
+        select: { userId: true },
+      });
+
+      const otherMemberIds = members
+        .map((m) => m.userId)
+        .filter((uid) => uid !== authorId);
+
+      if (otherMemberIds.length > 0) {
+        await Promise.allSettled(
+          otherMemberIds.map((userId) =>
+            this.pushService.sendPushNotification(userId, {
+              title: `New comment on ${issue.shortId}`,
+              body: `${newComment.author?.name || 'Someone'}: ${newComment.content.substring(0, 80)}${newComment.content.length > 80 ? '...' : ''}`,
+              url: `/issues/${issue.shortId}`,
+            })
+          )
+        );
+      }
+    }
+
+    // --- Feature #6: Reply (Notify Thread Participants) ---
+    if (dto.parentId) {
+      // Find thread participants (author of parent and any ancestors)
+      const threadRecipients = new Set<string>();
+      
+      let currentParentId: string | null = dto.parentId;
+      while (currentParentId) {
+        const parentComment = await this.prisma.comment.findUnique({
+          where: { id: currentParentId },
+          select: { authorId: true, parentId: true },
+        });
+
+        if (parentComment) {
+          if (parentComment.authorId !== authorId && !mentionedOthers.includes(parentComment.authorId)) {
+            threadRecipients.add(parentComment.authorId);
+          }
+          currentParentId = parentComment.parentId;
+        } else {
+          currentParentId = null;
+        }
+      }
+
+      if (threadRecipients.size > 0) {
+        await Promise.allSettled(
+          Array.from(threadRecipients).map((userId) =>
+            this.pushService.sendPushNotification(userId, {
+              title: `Someone replied to your thread on ${issue.shortId}`,
+              body: `${newComment.author?.name || 'Someone'}: ${newComment.content.substring(0, 80)}${newComment.content.length > 80 ? '...' : ''}`,
               url: `/issues/${issue.shortId}`,
             })
           )

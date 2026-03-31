@@ -106,7 +106,7 @@ function MentionTextarea({ value, onChange, placeholder, members, autoFocus }: M
     const newTextBefore = textBeforeCursor.slice(0, startIdx) + leadingWhitespace + replaceStr;
     const newText = newTextBefore + val.slice(cursor);
     
-    const newMentions = Array.from(new Set([...localMentions, member.userId]));
+    const newMentions = Array.from(new Set([...localMentions, member.user.id]));
     setLocalMentions(newMentions);
     onChange(newText, newMentions);
     setMentionSearch(null);
