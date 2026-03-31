@@ -150,214 +150,406 @@ export function Team() {
         </div>
 
         {activeTab === 'members' ? (
-          /* Members Table */
-          <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {isLoadingMembers ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
-                    </tr>
-                  ))
-                ) : (
-                  members.map((member) => (
-                    <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {isLoadingMembers ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
+                      </tr>
+                    ))
+                  ) : (
+                    members.map((member) => (
+                      <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden shrink-0">
+                              {member.user.avatarUrl ? (
+                                <img src={member.user.avatarUrl} className="size-full object-cover" alt="" />
+                              ) : (
+                                member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <span className="font-medium text-sm">{member.user.name || 'Invited User'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{member.user.email}</td>
+                        <td className="px-6 py-4">
+                          {editingMemberId === member.id ? (
+                            <select 
+                              value={member.role}
+                              onChange={(e) => handleUpdateRole(member.id, e.target.value as UserRole)}
+                              onBlur={() => setEditingMemberId(null)}
+                              autoFocus
+                              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                            >
+                              <option value={UserRole.MEMBER}>MEMBER</option>
+                              <option value={UserRole.ADMIN}>ADMIN</option>
+                              <option value={UserRole.VIEWER}>VIEWER</option>
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
+                              member.role === UserRole.OWNER 
+                                ? 'bg-primary/10 text-primary border-primary/20' 
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}>
+                              {member.role}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                            <span className="size-1.5 rounded-full bg-emerald-500"></span>
+                            Active
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isOwner && member.user.id !== user?.id && member.role !== UserRole.OWNER && (
+                              <>
+                                <button 
+                                  onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)}
+                                  className="text-slate-400 hover:text-white transition-colors p-1"
+                                  title="Change Role"
+                                >
+                                  <span className="material-symbols-outlined text-lg">settings</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleRemoveMember(member.id)}
+                                  className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                                  title="Remove Member"
+                                >
+                                  <span className="material-symbols-outlined text-lg">person_remove</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  
+                  {/* Outgoing Invitations Section */}
+                  {invites.map((invite) => (
+                    <tr key={invite.id} className="bg-amber-500/5 border-l-4 border-l-amber-500/50">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-400 italic">Outgoing Invitation</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{invite.email}</td>
                       <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          {invite.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
+                          <span className="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          Pending
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {(isOwner || isAdmin) && (
+                          <button 
+                            onClick={() => handleRevokeInvite(invite.id)}
+                            className="text-xs font-bold text-rose-500 hover:underline"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {isLoadingMembers ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-pulse h-32"></div>
+                ))
+              ) : (
+                <>
+                  {members.map((member) => (
+                    <div key={member.id} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden shrink-0">
+                          <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary overflow-hidden">
                             {member.user.avatarUrl ? (
                               <img src={member.user.avatarUrl} className="size-full object-cover" alt="" />
                             ) : (
                               member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()
                             )}
                           </div>
-                          <span className="font-medium text-sm">{member.user.name || 'Invited User'}</span>
+                          <div>
+                            <h4 className="font-bold text-sm">{member.user.name || 'Invited User'}</h4>
+                            <p className="text-xs text-slate-500">{member.user.email}</p>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{member.user.email}</td>
-                      <td className="px-6 py-4">
-                        {editingMemberId === member.id ? (
-                          <select 
-                            value={member.role}
-                            onChange={(e) => handleUpdateRole(member.id, e.target.value as UserRole)}
-                            onBlur={() => setEditingMemberId(null)}
-                            autoFocus
-                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
-                          >
-                            <option value={UserRole.MEMBER}>MEMBER</option>
-                            <option value={UserRole.ADMIN}>ADMIN</option>
-                            <option value={UserRole.VIEWER}>VIEWER</option>
-                          </select>
-                        ) : (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
-                            member.role === UserRole.OWNER 
-                              ? 'bg-primary/10 text-primary border-primary/20' 
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                          }`}>
-                            {member.role}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                          <span className="size-1.5 rounded-full bg-emerald-500"></span>
-                          Active
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center gap-1">
                           {isOwner && member.user.id !== user?.id && member.role !== UserRole.OWNER && (
                             <>
                               <button 
                                 onClick={() => setEditingMemberId(editingMemberId === member.id ? null : member.id)}
-                                className="text-slate-400 hover:text-white transition-colors p-1"
-                                title="Change Role"
+                                className="text-slate-400 p-2"
                               >
                                 <span className="material-symbols-outlined text-lg">settings</span>
                               </button>
                               <button 
                                 onClick={() => handleRemoveMember(member.id)}
-                                className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                                title="Remove Member"
+                                className="text-slate-400 p-2 hover:text-rose-500"
                               >
                                 <span className="material-symbols-outlined text-lg">person_remove</span>
                               </button>
                             </>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-                
-                {/* Outgoing Invitations Section */}
-                {invites.map((invite) => (
-                  <tr key={invite.id} className="bg-amber-500/5 border-l-4 border-l-amber-500/50">
-                    <td className="px-6 py-4 text-sm font-medium text-slate-400 italic">Outgoing Invitation</td>
-                    <td className="px-6 py-4 text-sm text-slate-500">{invite.email}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                        {invite.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
-                        <span className="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        Pending
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {(isOwner || isAdmin) && (
-                        <button 
-                          onClick={() => handleRevokeInvite(invite.id)}
-                          className="text-xs font-bold text-rose-500 hover:underline"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* Received Invitations Table */
-          <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Organization</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Invited By</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {isLoadingMyInvites ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
-                    </tr>
-                  ))
-                ) : myInvites.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                      No invitations received yet.
-                    </td>
-                  </tr>
-                ) : (
-                  myInvites.map((invite) => (
-                    <tr key={invite.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                            {invite.organization.logoUrl ? (
-                              <img src={invite.organization.logoUrl} className="size-full object-cover rounded-lg" alt="" />
-                            ) : (
-                              invite.organization.name.charAt(0)
-                            )}
-                          </div>
-                          <span className="font-bold text-sm">{invite.organization.name}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</span>
+                          {editingMemberId === member.id ? (
+                            <select 
+                              value={member.role}
+                              onChange={(e) => handleUpdateRole(member.id, e.target.value as UserRole)}
+                              onBlur={() => setEditingMemberId(null)}
+                              autoFocus
+                              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs"
+                            >
+                              <option value={UserRole.MEMBER}>MEMBER</option>
+                              <option value={UserRole.ADMIN}>ADMIN</option>
+                              <option value={UserRole.VIEWER}>VIEWER</option>
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border w-fit ${
+                              member.role === UserRole.OWNER 
+                                ? 'bg-primary/10 text-primary border-primary/20' 
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}>
+                              {member.role}
+                            </span>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 overflow-hidden shrink-0">
-                            {invite.inviter.avatarUrl ? (
-                              <img src={invite.inviter.avatarUrl} className="size-full object-cover" alt="" />
-                            ) : (
-                              (invite.inviter.name || invite.inviter.email).charAt(0).toUpperCase()
-                            )}
-                          </div>
-                          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                            {invite.inviter.name || invite.inviter.email}
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
+                          <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
+                            <span className="size-1.5 rounded-full bg-emerald-500"></span>
+                            Active
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          {invite.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">
-                        {new Date(invite.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <button 
-                            onClick={() => declineInvite.mutate(invite.id)}
-                            disabled={declineInvite.isPending}
-                            className="text-xs font-bold text-slate-500 hover:text-rose-500 transition-colors"
-                          >
-                            Decline
-                          </button>
-                          <button 
-                            onClick={() => acceptInvite.mutate(invite.token)}
-                            disabled={acceptInvite.isPending}
-                            className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
-                          >
-                            Accept
-                          </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Outgoing Invitations Mobile */}
+                  {invites.length > 0 && (
+                    <div className="mt-8 space-y-4">
+                      <h3 className="text-sm font-bold text-amber-500 flex items-center gap-2 px-1">
+                        <span className="material-symbols-outlined text-lg">mail</span>
+                        Outgoing Invitations
+                      </h3>
+                      {invites.map((invite) => (
+                        <div key={invite.id} className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h4 className="font-bold text-sm text-slate-400 italic">Invite Pending</h4>
+                              <p className="text-xs text-slate-500">{invite.email}</p>
+                            </div>
+                            {(isOwner || isAdmin) && (
+                              <button 
+                                onClick={() => handleRevokeInvite(invite.id)}
+                                className="text-[10px] font-bold text-rose-500 px-2 py-1 border border-rose-500/50 rounded-md hover:bg-rose-500/10 transition-colors"
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                              {invite.role}
+                            </span>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Desktop Received Invitations Table */}
+            <div className="hidden md:block bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Organization</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Invited By</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {isLoadingMyInvites ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td colSpan={5} className="px-6 py-6 h-16 bg-slate-50/50 dark:bg-slate-800/20"></td>
+                      </tr>
+                    ))
+                  ) : myInvites.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        No invitations received yet.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    myInvites.map((invite) => (
+                      <tr key={invite.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                              {invite.organization.logoUrl ? (
+                                <img src={invite.organization.logoUrl} className="size-full object-cover rounded-lg" alt="" />
+                              ) : (
+                                invite.organization.name.charAt(0)
+                              )}
+                            </div>
+                            <span className="font-bold text-sm">{invite.organization.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 overflow-hidden shrink-0">
+                              {invite.inviter.avatarUrl ? (
+                                <img src={invite.inviter.avatarUrl} className="size-full object-cover" alt="" />
+                              ) : (
+                                (invite.inviter.name || invite.inviter.email).charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                              {invite.inviter.name || invite.inviter.email}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            {invite.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {new Date(invite.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button 
+                              onClick={() => declineInvite.mutate(invite.id)}
+                              disabled={declineInvite.isPending}
+                              className="text-xs font-bold text-slate-500 hover:text-rose-500 transition-colors"
+                            >
+                              Decline
+                            </button>
+                            <button 
+                              onClick={() => acceptInvite.mutate(invite.token)}
+                              disabled={acceptInvite.isPending}
+                              className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+                            >
+                              Accept
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Received Invitations Card View */}
+            <div className="md:hidden space-y-4">
+              {isLoadingMyInvites ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-pulse h-40"></div>
+                ))
+              ) : myInvites.length === 0 ? (
+                <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center text-slate-500">
+                  No invitations received yet.
+                </div>
+              ) : (
+                myInvites.map((invite) => (
+                  <div key={invite.id} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+                        {invite.organization.logoUrl ? (
+                          <img src={invite.organization.logoUrl} className="size-full object-cover rounded-xl" alt="" />
+                        ) : (
+                          invite.organization.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm truncate">{invite.organization.name}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                            {invite.role}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(invite.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 flex items-center gap-3 mb-4">
+                      <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 overflow-hidden shrink-0">
+                        {invite.inviter.avatarUrl ? (
+                          <img src={invite.inviter.avatarUrl} className="size-full object-cover" alt="" />
+                        ) : (
+                          (invite.inviter.name || invite.inviter.email).charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Invited By</p>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                          {invite.inviter.name || invite.inviter.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => declineInvite.mutate(invite.id)}
+                        disabled={declineInvite.isPending}
+                        className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 hover:text-rose-500 text-slate-600 dark:text-slate-400 py-2.5 rounded-lg text-xs font-bold transition-all"
+                      >
+                        Decline
+                      </button>
+                      <button 
+                        onClick={() => acceptInvite.mutate(invite.token)}
+                        disabled={acceptInvite.isPending}
+                        className="flex-1 bg-primary hover:bg-primary/90 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-lg shadow-primary/20"
+                      >
+                        Accept Invite
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
         )}
       </div>
 
