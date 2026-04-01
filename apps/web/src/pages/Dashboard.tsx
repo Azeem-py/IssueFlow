@@ -1,20 +1,157 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
 import { useDashboardQueries } from '../hooks/useDashboardQueries';
+import { useAuthQueries } from '../hooks/useAuthQueries';
+import { useAuth } from '../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { CreateOrgModal } from '../components/CreateOrgModal';
+import api from '../lib/api';
 
 export function Dashboard() {
+  const { currentOrg, setCurrentOrg, refreshUser } = useAuth();
   const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } = usePermissions();
   const { useDashboardStats, useActivityFeed, useAuditLogs } = useDashboardQueries();
+  const { useMyInvitations, declineInvitation } = useAuthQueries();
 
   const { data: statsData, isLoading: isLoadingStats } = useDashboardStats();
   const { data: activityFeed, isLoading: isLoadingActivity } = useActivityFeed();
   const { data: auditLogs, isLoading: isLoadingAudit } = useAuditLogs();
+  const { data: myInvitations, isLoading: isLoadingInvites } = useMyInvitations();
+
+  const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
+  const [acceptingInviteId, setAcceptingInviteId] = useState<string | null>(null);
 
   const baseStats = statsData?.baseStats || [];
   const advancedStats = statsData?.advancedStats || [];
 
   const statsToRender = canInviteMembers ? [...baseStats, ...advancedStats] : baseStats;
+
+  const handleAcceptInvite = async (token: string, inviteId: string) => {
+    setAcceptingInviteId(inviteId);
+    try {
+      await api.post('/organizations/invites/accept', { token });
+      await refreshUser();
+    } catch (err) {
+      console.error('Failed to accept invite', err);
+    } finally {
+      setAcceptingInviteId(null);
+    }
+  };
+
+  if (!currentOrg) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 space-y-12">
+        <div className="text-center space-y-4">
+          <div className="size-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <span className="material-symbols-outlined text-4xl text-primary">rocket_launch</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-white uppercase italic">Welcome to IssueFlow</h1>
+          <p className="text-slate-400 text-lg max-w-lg mx-auto">
+            You are not part of any organization yet. Create your own workspace or check your pending invitations to get started.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Create Org Card */}
+          <div className="bg-white dark:bg-card-dark rounded-[2rem] border border-slate-200 dark:border-slate-800 p-8 flex flex-col justify-between hover:border-primary/50 transition-colors group">
+            <div>
+              <div className="size-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-primary">add_business</span>
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight text-white mb-2">Create Workspace</h2>
+              <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                Start fresh with your own organization. You'll be the owner and can invite your team.
+              </p>
+            </div>
+            <button 
+              onClick={() => setIsCreateOrgOpen(true)}
+              className="w-full py-4 bg-primary text-white font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            >
+              Start Building
+            </button>
+          </div>
+
+          {/* Invitations Card */}
+          <div className="bg-white dark:bg-card-dark rounded-[2rem] border border-slate-200 dark:border-slate-800 p-8 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <div className="size-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-emerald-500">mail</span>
+              </div>
+              {myInvitations && myInvitations.length > 0 && (
+                <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">
+                  {myInvitations.length} Pending
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-tight text-white mb-2">Join Workspace</h2>
+            <p className="text-slate-500 text-sm leading-relaxed mb-6">
+              Check if your teammates have already invited you to a workspace.
+            </p>
+
+            <div className="flex-1 space-y-3 overflow-y-auto max-h-[200px] pr-2 custom-scrollbar">
+              {isLoadingInvites ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
+                  <div className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
+                </div>
+              ) : myInvitations && myInvitations.length > 0 ? (
+                myInvitations.map((invite: any) => (
+                  <div key={invite.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {invite.organization.logoUrl ? (
+                        <img src={invite.organization.logoUrl} className="size-8 rounded-lg object-cover" alt="" />
+                      ) : (
+                        <div className="size-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-xs">
+                          {invite.organization.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{invite.organization.name}</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Role: {invite.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => declineInvitation.mutate(invite.id)}
+                        disabled={declineInvitation.isPending || acceptingInviteId === invite.id}
+                        className="p-2 text-slate-500 hover:text-rose-500 transition-colors disabled:opacity-50"
+                        title="Decline"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                      <button 
+                        onClick={() => handleAcceptInvite(invite.token, invite.id)}
+                        disabled={declineInvitation.isPending || acceptingInviteId === invite.id}
+                        className="p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors disabled:opacity-50"
+                        title="Accept"
+                      >
+                        {acceptingInviteId === invite.id ? (
+                          <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <span className="material-symbols-outlined text-lg">check</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="h-32 flex flex-col items-center justify-center text-slate-600 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
+                  <span className="material-symbols-outlined mb-2 opacity-50">drafts</span>
+                  <p className="text-xs font-bold uppercase tracking-widest">No invitations found</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <CreateOrgModal 
+          isOpen={isCreateOrgOpen} 
+          onClose={() => setIsCreateOrgOpen(false)} 
+          onSuccess={(org) => setCurrentOrg(org)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

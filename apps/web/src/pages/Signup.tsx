@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthQueries } from '../hooks/useAuthQueries';
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { UserRole } from '@issueflow/types';
 
 export function Signup() {
   const { user, isLoading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,13 +22,14 @@ export function Signup() {
   const navigate = useNavigate();
 
   // Redirect if already logged in
-  if (!authLoading && user) {
-    window.location.href = '/dashboard';
-    return null;
-  }
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate(redirect || '/dashboard', { replace: true });
+    }
+  }, [user, authLoading, navigate, redirect]);
 
   // Prevent flicker during initial load
-  if (authLoading) {
+  if (authLoading || user) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-background-dark gap-4">
         <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
@@ -51,7 +54,11 @@ export function Signup() {
       // Small pause for cookie commit
       await new Promise(r => setTimeout(r, 100));
       
-      window.location.href = '/dashboard';
+      if (redirect) {
+        window.location.href = redirect;
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Something went wrong. Please try again.');
     }

@@ -101,9 +101,31 @@ export function useAuthQueries() {
     },
   });
 
+  // Get invitations received by the current user
+  const useMyInvitations = () => useQuery({
+    queryKey: ['my-invitations'],
+    queryFn: async () => {
+      const { data } = await api.get('/organizations/invites/my');
+      return data;
+    },
+  });
+
+  // Decline invitation mutation
+  const declineInvitationMutation = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { data } = await api.post(`/organizations/invites/${inviteId}/decline`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-invitations'] });
+    },
+  });
+
   return {
     useMe,
     useOrganizations,
+    useMyInvitations,
+    declineInvitation: declineInvitationMutation,
     createOrganization: createOrganizationMutation,
     updateProfile: updateProfileMutation,
     login: loginMutation,

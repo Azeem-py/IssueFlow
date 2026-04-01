@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuthQueries } from '../hooks/useAuthQueries';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Login() {
   const { user, isLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,13 +17,14 @@ export function Login() {
   const navigate = useNavigate();
 
   // Redirect if already logged in
-  if (!isLoading && user) {
-    window.location.href = '/dashboard';
-    return null;
-  }
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate(redirect || '/dashboard', { replace: true });
+    }
+  }, [user, isLoading, navigate, redirect]);
 
   // Prevent flicker during initial load
-  if (isLoading) {
+  if (isLoading || user) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-background-dark gap-4">
         <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
@@ -40,7 +43,11 @@ export function Login() {
       // Small pause to ensure browser cookie write is prioritized before reload
       await new Promise(r => setTimeout(r, 100));
       
-      window.location.href = '/dashboard';
+      if (redirect) {
+        window.location.href = redirect;
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     }

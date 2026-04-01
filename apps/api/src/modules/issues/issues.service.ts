@@ -19,7 +19,7 @@ export class IssuesService {
     const shortId = await this.sequenceService.getNextShortId(dto.projectId);
     this.logger.log(`Creating issue ${shortId} in project ${dto.projectId} by user ${authorId}`);
 
-    return this.prisma.issue.create({
+    const issue = await this.prisma.issue.create({
       data: {
         shortId,
         title: dto.title,
@@ -31,7 +31,36 @@ export class IssuesService {
         authorId,
         assigneeId: dto.assigneeId || null,
       },
+      include: {
+        author: { select: { name: true, email: true } },
+      }
     });
+
+    // Notify all org members (Feature: Issue Creation Notification)
+    const members = await this.prisma.member.findMany({
+      where: { organizationId: dto.organizationId },
+      select: { userId: true },
+    });
+
+    const otherMemberIds = members
+      .map((m) => m.userId)
+      .filter((uid) => uid !== authorId);
+
+    this.logger.log(`Created issue ${shortId}, notifying ${otherMemberIds.length} members`);
+
+    if (otherMemberIds.length > 0) {
+      await Promise.allSettled(
+        otherMemberIds.map((userId) =>
+          this.pushService.sendPushNotification(userId, {
+            title: `New Issue: ${issue.shortId}`,
+            body: `${issue.author?.name || 'Someone'} opened: ${issue.title}`,
+            url: `/dashboard/issues/${issue.id}`,
+          })
+        )
+      );
+    }
+
+    return issue;
   }
 
   async getIssues(orgId: string, filters: SearchFilters) {
@@ -95,10 +124,11 @@ export class IssuesService {
       dto.assigneeId &&
       dto.assigneeId !== current?.assigneeId
     ) {
+      this.logger.log(`Assignee changed for issue ${updated.shortId}, notifying user ${dto.assigneeId}`);
       await this.pushService.sendPushNotification(dto.assigneeId, {
         title: 'You have been assigned an issue',
         body: `Issue ${updated.shortId}: ${updated.title}`,
-        url: `/issues/${updated.shortId}`,
+        url: `/dashboard/issues/${updated.id}`,
       });
     }
 
@@ -146,12 +176,13 @@ export class IssuesService {
       });
 
       if (mentionedOthers.length > 0) {
+        this.logger.log(`Notifying ${mentionedOthers.length} users mentioned in comment ${newComment.id}`);
         await Promise.allSettled(
           mentionedOthers.map((userId) =>
             this.pushService.sendPushNotification(userId, {
               title: 'You were mentioned in IssueFlow',
               body: `${newComment.author?.name || 'Someone'} mentioned you in ${issue.shortId}`,
-              url: `/issues/${issue.shortId}`,
+              url: `/dashboard/issues/${issue.id}`,
             })
           )
         );
@@ -169,13 +200,15 @@ export class IssuesService {
         .map((m) => m.userId)
         .filter((uid) => uid !== authorId);
 
+      this.logger.log(`Top-level comment added, notifying ${otherMemberIds.length} org members`);
+
       if (otherMemberIds.length > 0) {
         await Promise.allSettled(
           otherMemberIds.map((userId) =>
             this.pushService.sendPushNotification(userId, {
               title: `New comment on ${issue.shortId}`,
               body: `${newComment.author?.name || 'Someone'}: ${newComment.content.substring(0, 80)}${newComment.content.length > 80 ? '...' : ''}`,
-              url: `/issues/${issue.shortId}`,
+              url: `/dashboard/issues/${issue.id}`,
             })
           )
         );
@@ -189,7 +222,7 @@ export class IssuesService {
       
       let currentParentId: string | null = dto.parentId;
       while (currentParentId) {
-        const parentComment = await this.prisma.comment.findUnique({
+        const parentComment: any = await this.prisma.comment.findUnique({
           where: { id: currentParentId },
           select: { authorId: true, parentId: true },
         });
@@ -204,13 +237,15 @@ export class IssuesService {
         }
       }
 
+      this.logger.log(`Reply added, notifying ${threadRecipients.size} thread participants`);
+
       if (threadRecipients.size > 0) {
         await Promise.allSettled(
           Array.from(threadRecipients).map((userId) =>
             this.pushService.sendPushNotification(userId, {
               title: `Someone replied to your thread on ${issue.shortId}`,
               body: `${newComment.author?.name || 'Someone'}: ${newComment.content.substring(0, 80)}${newComment.content.length > 80 ? '...' : ''}`,
-              url: `/issues/${issue.shortId}`,
+              url: `/dashboard/issues/${issue.id}`,
             })
           )
         );
