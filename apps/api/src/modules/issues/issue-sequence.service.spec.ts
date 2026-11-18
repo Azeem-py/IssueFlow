@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { IssueSequenceService } from './issue-sequence.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,8 +7,8 @@ describe('IssueSequenceService', () => {
   let service: IssueSequenceService;
   let prisma: PrismaService;
 
-  const mockPrisma = {
-    $transaction: jest.fn().mockImplementation((cb) => cb(mockPrisma)),
+  const mockPrisma: any = {
+    $transaction: jest.fn<any>().mockImplementation((cb: any) => cb(mockPrisma)),
     project: {
       update: jest.fn(),
     },

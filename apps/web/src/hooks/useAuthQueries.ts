@@ -37,7 +37,7 @@ export function useAuthQueries() {
     },
     onSuccess: (data) => {
       // Seed the cache with the new user
-      queryClient.setQueryData(['me'], data);
+      queryClient.setQueryData(['me'], data?.user ?? data);
       queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
@@ -50,7 +50,9 @@ export function useAuthQueries() {
     },
     onSuccess: () => {
       queryClient.setQueryData(['me'], null);
-      queryClient.invalidateQueries();
+      queryClient.clear();
+      localStorage.removeItem('issueflow_org_id');
+      window.location.href = '/login';
     },
   });
 
@@ -61,6 +63,7 @@ export function useAuthQueries() {
       const { data } = await api.get('/organizations');
       return data;
     },
+    retry: false,
   });
 
   // Create organization mutation
@@ -69,7 +72,13 @@ export function useAuthQueries() {
       const { data } = await api.post('/organizations', orgData);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Insert the new organization immediately so the UI can switch to it
+      // without racing the background refetch.
+      queryClient.setQueryData(['organizations'], (old: any[] | undefined) => {
+        const list = old || [];
+        return list.some((org) => org.id === data.id) ? list : [...list, data];
+      });
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
     },
   });
@@ -121,12 +130,27 @@ export function useAuthQueries() {
     },
   });
 
+  // Delete organization mutation (owner only)
+  const deleteOrganizationMutation = useMutation({
+    mutationFn: async (orgId: string) => {
+      const { data } = await api.delete(`/organizations/${orgId}`, {
+        headers: { 'x-org-id': orgId },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      localStorage.removeItem('issueflow_org_id');
+    },
+  });
+
   return {
     useMe,
     useOrganizations,
     useMyInvitations,
     declineInvitation: declineInvitationMutation,
     createOrganization: createOrganizationMutation,
+    deleteOrganization: deleteOrganizationMutation,
     updateProfile: updateProfileMutation,
     login: loginMutation,
     register: registerMutation,

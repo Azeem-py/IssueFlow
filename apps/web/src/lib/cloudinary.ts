@@ -26,6 +26,12 @@ async function generateSignature(params: Record<string, any>, secret: string) {
 }
 
 export async function uploadToCloudinary(file: File): Promise<string> {
+  // Local development fallback: without Cloudinary credentials, store a
+  // compressed data URL so logo/avatar uploads still work end-to-end.
+  if (!CLOUD_NAME || !API_KEY || !API_SECRET) {
+    return fileToCompressedDataUrl(file);
+  }
+
   const timestamp = Math.round(new Date().getTime() / 1000);
   
   // Parameters to sign (Cloudinary requires specific alphabetical order for signing)
@@ -47,4 +53,23 @@ export async function uploadToCloudinary(file: File): Promise<string> {
   );
 
   return data.secure_url;
+}
+
+async function fileToCompressedDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const maxSize = 384;
+  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not process the selected image');
+
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  return canvas.toDataURL('image/jpeg', 0.75);
 }

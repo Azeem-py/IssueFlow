@@ -1,4 +1,5 @@
 import React from 'react';
+import { Kbd } from '@issueflow/ui';
 
 interface KeyboardHintProps {
   keys: string[];
@@ -6,15 +7,12 @@ interface KeyboardHintProps {
 
 export function KeyboardHint({ keys }: KeyboardHintProps) {
   return (
-    <div className="flex items-center gap-1">
+    <span className="flex shrink-0 items-center gap-1">
       {keys.map((key, index) => (
-        <span
-          key={index}
-          className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow-sm"
-        >
+        <Kbd key={index} className="h-4 min-w-4 px-1 text-[9px]">
           {key}
-        </span>
+        </Kbd>
       ))}
-    </div>
+    </span>
   );
 }

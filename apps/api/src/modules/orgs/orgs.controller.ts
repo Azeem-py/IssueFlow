@@ -118,6 +118,7 @@ export class OrgsController {
 
   @Get(':id/invites')
   @UseGuards(OrgMemberGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get pending invites' })
   getInvites(@Param() params: OrgParamsDto) {
     return this.invitesService.getInvites(params.id);

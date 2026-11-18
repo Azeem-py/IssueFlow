@@ -61,18 +61,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [apiUser]);
 
   useEffect(() => {
-    if (organizations && organizations.length > 0) {
-      if (!currentOrg) {
-        const defaultOrg = organizations[0];
-        setCurrentOrg(defaultOrg);
-        localStorage.setItem('issueflow_org_id', defaultOrg.id);
-      } else {
-        const updatedOrg = organizations.find((o: any) => o.id === currentOrg.id);
-        if (updatedOrg) {
-          setCurrentOrg(updatedOrg);
-          localStorage.setItem('issueflow_org_id', updatedOrg.id);
-        }
-      }
+    if (!organizations) return;
+
+    if (organizations.length === 0) {
+      if (currentOrg) setCurrentOrg(null);
+      localStorage.removeItem('issueflow_org_id');
+      return;
+    }
+
+    const nextOrg = currentOrg
+      ? organizations.find((o: any) => o.id === currentOrg.id)
+      : organizations[0];
+
+    // If a newly created org is not in the cached list yet, keep it selected
+    // instead of falling back to a stale organization. The list will refetch
+    // shortly and this effect will run again.
+    if (currentOrg && !nextOrg) return;
+
+    if (nextOrg) {
+      setCurrentOrg(nextOrg);
+      localStorage.setItem('issueflow_org_id', nextOrg.id);
     }
   }, [organizations, currentOrg]);
 

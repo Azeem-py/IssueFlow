@@ -23,14 +23,14 @@ export function useOrgQueries() {
   });
 
   // Get pending invitations (sent by this org)
-  const useInvites = () => useQuery<any[]>({
+  const useInvites = (enabled = true) => useQuery<any[]>({
     queryKey: ['org-invites', currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg?.id) return [];
       const { data } = await api.get(`/organizations/${currentOrg.id}/invites`);
       return data;
     },
-    enabled: !!currentOrg?.id,
+    enabled: !!currentOrg?.id && enabled,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

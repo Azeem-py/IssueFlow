@@ -14,14 +14,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
       manifest: {
         name: 'IssueFlow',
         short_name: 'IssueFlow',
         description: 'Multi-tenant issue tracking system',
-        theme_color: '#0a0a0a',
-        background_color: '#0a0a0a',
+        theme_color: '#08111f',
+        background_color: '#08111f',
         display: 'standalone',
         icons: [
           {
@@ -45,9 +45,12 @@ export default defineConfig({
     })
   ],
   server: {
+    port: 8033,
+    strictPort: true,
+    host: 'localhost',
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:8034',
         changeOrigin: true,
       },
     },

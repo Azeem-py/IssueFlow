@@ -14,19 +14,33 @@ export class OrgsService {
     const existing = await this.prisma.organization.findUnique({ where: { slug } });
     if (existing) throw new BadRequestException('Slug already taken');
 
-    return this.prisma.organization.create({
-      data: {
-        name,
-        slug,
-        logoUrl,
-        members: {
-          create: {
-            userId,
-            role: 'OWNER',
+    try {
+      return await this.prisma.organization.create({
+        data: {
+          name,
+          slug,
+          logoUrl,
+          members: {
+            create: {
+              userId,
+              role: 'OWNER',
+            },
           },
         },
-      },
-    });
+        include: {
+          members: {
+            where: { userId },
+            select: { role: true },
+          },
+        },
+      });
+    } catch (error: any) {
+      // A soft-deleted workspace can still hold the unique slug.
+      if (error?.code === 'P2002') {
+        throw new BadRequestException('Slug already taken');
+      }
+      throw error;
+    }
   }
 
   async getMyOrgs(userId: string) {
@@ -56,14 +70,23 @@ export class OrgsService {
     });
     if (existing) throw new BadRequestException('Project key already exists in this organization');
 
-    const project = await this.prisma.project.create({
-      data: {
-        name,
-        key: key.toUpperCase(),
-        organizationId: orgId,
-        logoUrl,
-      },
-    });
+    let project;
+    try {
+      project = await this.prisma.project.create({
+        data: {
+          name,
+          key: key.toUpperCase(),
+          organizationId: orgId,
+          logoUrl,
+        },
+      });
+    } catch (error: any) {
+      // Soft-deleted projects keep their unique key constraint.
+      if (error?.code === 'P2002') {
+        throw new BadRequestException('Project key already exists in this organization');
+      }
+      throw error;
+    }
 
     await this.activityService.log({
       action: ActivityAction.PROJECT_CREATED,
@@ -117,14 +140,22 @@ export class OrgsService {
       if (existing) throw new BadRequestException('Project key already exists in this organization');
     }
 
-    const updated = await this.prisma.project.update({
-      where: { id: projectId },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.key && { key: data.key.toUpperCase() }),
-        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
-      },
-    });
+    let updated;
+    try {
+      updated = await this.prisma.project.update({
+        where: { id: projectId },
+        data: {
+          ...(data.name && { name: data.name }),
+          ...(data.key && { key: data.key.toUpperCase() }),
+          ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new BadRequestException('Project key already exists in this organization');
+      }
+      throw error;
+    }
 
     await this.activityService.log({
       action: ActivityAction.PROJECT_UPDATED,

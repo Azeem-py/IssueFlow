@@ -1,14 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { useAuthQueries } from '../hooks/useAuthQueries';
-import api from '../lib/api';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Alert,
+  Button,
+  EyeIcon,
+  EyeOffIcon,
+  Input,
+  KeyIcon,
+  LockIcon,
+  MailIcon,
+  Select,
+  Spinner,
+  UserIcon,
+} from '@issueflow/ui';
 import { UserRole } from '@issueflow/types';
+import { useAuthQueries } from '../hooks/useAuthQueries';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthShell } from '../components/AuthShell';
+
+const ROLE_HINT: Record<string, string> = {
+  MEMBER: 'Create and edit issues, move work, and comment.',
+  ADMIN: 'Manage projects, invite members, and oversee workspace operations.',
+  VIEWER: 'Read-only access to projects, issues, and comments.',
+};
 
 export function Signup() {
   const { user, isLoading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  const redirectParam = searchParams.get('redirect');
+  const redirect =
+    redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+      ? redirectParam
+      : '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,195 +41,147 @@ export function Signup() {
   const [secretCode, setSecretCode] = useState('');
   const [showSecretCode, setShowSecretCode] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { register } = useAuthQueries();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user) {
-      navigate(redirect || '/dashboard', { replace: true });
-    }
+    if (!authLoading && user) navigate(redirect, { replace: true });
   }, [user, authLoading, navigate, redirect]);
 
-  // Prevent flicker during initial load
   if (authLoading || user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background-dark gap-4">
-        <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-        <p className="text-slate-500 font-medium animate-pulse">Initializing workspace...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas">
+        <Spinner className="size-6 text-brand-400" />
+        <p className="text-[12.5px] text-ink-muted">Loading your workspace…</p>
       </div>
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
-    
     try {
-      await register.mutateAsync({ 
-        email, 
-        password, 
-        name, 
+      await register.mutateAsync({
+        email,
+        password,
+        name,
         role,
-        ...(role === UserRole.ADMIN && { secretCode })
+        ...(role === UserRole.ADMIN && { secretCode }),
       });
-      
-      // Small pause for cookie commit
-      await new Promise(r => setTimeout(r, 100));
-      
-      if (redirect) {
-        window.location.href = redirect;
-      } else {
-        window.location.href = '/dashboard';
-      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.location.href = redirect;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      setError(err.response?.data?.message || 'Could not create your account. Try again.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background-dark relative overflow-hidden">
-      {/* Decorative gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]"></div>
+    <AuthShell
+      wide
+      title="Create your account"
+      description="Start tracking work with your team in a few seconds."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-brand-300 underline decoration-brand-500/40 underline-offset-2 transition-colors hover:text-brand-200">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <Alert tone="danger" title="Could not create account" description={error} />}
 
-      <div className="w-full max-w-lg relative py-12">
-        <div className="bg-card-dark/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center mb-8">
-            <Link to="/" className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4 hover:scale-105 transition-transform">
-              <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
-            </Link>
-            <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Create an Account</h1>
-            <p className="text-slate-400 text-sm text-center">Join IssueFlow today and streamline your engineering workflow</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-3 rounded-lg text-center">
-                {error}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">person</span>
-                  <input 
-                    type="text" 
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
-                    placeholder="John Doe"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Email Address</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">mail</span>
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
-                    placeholder="name@company.com"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Password</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">lock</span>
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-12 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-primary transition-colors"
-                    tabIndex={-1}
-                  >
-                    <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Your Role</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">shield_person</span>
-                  <select 
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all appearance-none cursor-pointer"
-                  >
-                    <option value={UserRole.MEMBER}>Member (Standard)</option>
-                    <option value={UserRole.ADMIN}>Admin (Management)</option>
-                    <option value={UserRole.VIEWER}>Viewer (Read-only)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {role === UserRole.ADMIN && (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2 ml-1">Admin Secret Code</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">key</span>
-                  <input 
-                    type={showSecretCode ? "text" : "password"} 
-                    required
-                    value={secretCode}
-                    onChange={(e) => setSecretCode(e.target.value)}
-                    className="w-full bg-primary/10 border border-primary/30 rounded-xl pl-12 pr-12 py-3 text-primary outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-primary/40"
-                    placeholder="Enter registration code"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSecretCode(!showSecretCode)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors"
-                    tabIndex={-1}
-                  >
-                    <span className="material-symbols-outlined text-xl">{showSecretCode ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-                <p className="mt-2 text-[10px] text-primary/60 px-1 font-medium italic">Contact workspace owner for this code</p>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={register.isPending}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:pointer-events-none mt-4"
-            >
-              {register.isPending ? 'Processing...' : 'Create Account'}
-              <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">rocket_launch</span>
-            </button>
-          </form>
-
-          <p className="mt-8 text-center text-slate-500 text-sm">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary font-bold hover:underline">Log in</Link>
-          </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label="Full name"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Jane Doe"
+            leftIcon={<UserIcon />}
+          />
+          <Input
+            label="Email address"
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="name@company.com"
+            leftIcon={<MailIcon />}
+          />
         </div>
-        
-        <p className="mt-6 text-center text-slate-600 text-xs px-8">
-          By signing up, you agree to our <span className="underline cursor-pointer">Terms of Service</span> and <span className="underline cursor-pointer">Privacy Policy</span>.
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            required
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Create a password"
+            leftIcon={<LockIcon />}
+            rightSlot={
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="rounded p-1 text-ink-muted transition-colors hover:text-ink"
+              >
+                {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+              </button>
+            }
+          />
+          <Select
+            label="Role"
+            value={role}
+            onChange={(event) => setRole(event.target.value as UserRole)}
+            hint={ROLE_HINT[role]}
+          >
+            <option value={UserRole.MEMBER}>Member</option>
+            <option value={UserRole.ADMIN}>Admin</option>
+            <option value={UserRole.VIEWER}>Viewer</option>
+          </Select>
+        </div>
+
+        {role === UserRole.ADMIN && (
+          <div className="rounded-lg border border-brand-500/25 bg-brand-500/[0.05] p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <KeyIcon className="size-4 text-brand-300" />
+              <p className="text-[12px] font-medium text-ink">Admin registration code</p>
+            </div>
+            <Input
+              type={showSecretCode ? 'text' : 'password'}
+              required
+              value={secretCode}
+              onChange={(event) => setSecretCode(event.target.value)}
+              placeholder="Enter the code from your owner"
+              rightSlot={
+                <button
+                  type="button"
+                  onClick={() => setShowSecretCode((visible) => !visible)}
+                  aria-label={showSecretCode ? 'Hide code' : 'Show code'}
+                  className="rounded p-1 text-ink-muted transition-colors hover:text-ink"
+                >
+                  {showSecretCode ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                </button>
+              }
+              aria-label="Admin registration code"
+            />
+            <p className="mt-1.5 text-[11px] text-ink-muted">Ask a workspace owner for this code.</p>
+          </div>
+        )}
+
+        <Button type="submit" fullWidth loading={register.isPending} className="mt-1">
+          Create account
+        </Button>
+
+        <p className="text-center text-[11px] leading-relaxed text-ink-disabled">
+          By creating an account you agree to the Terms of Service and Privacy Policy.
         </p>
-      </div>
-    </div>
+      </form>
+    </AuthShell>
   );
 }

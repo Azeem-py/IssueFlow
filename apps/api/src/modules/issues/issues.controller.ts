@@ -32,18 +32,22 @@ export class IssuesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single issue' })
-  async getIssue(@Param() params: IssueParamsDto) {
-    return this.issuesService.getIssue(params.id);
+  async getIssue(
+    @Headers('x-org-id') orgId: string,
+    @Param() params: IssueParamsDto
+  ) {
+    return this.issuesService.getIssue(orgId, params.id);
   }
 
   @Post()
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
   @ApiOperation({ summary: 'Create a new issue' })
   async createIssue(
+    @Headers('x-org-id') orgId: string,
     @Body() dto: CreateIssueDto,
     @CurrentUser() user: any
   ) {
-    return this.issuesService.createIssue(dto, user.id);
+    return this.issuesService.createIssue(dto, user.id, orgId);
   }
 
   @Post(':id')
@@ -51,18 +55,24 @@ export class IssuesController {
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
   @ApiOperation({ summary: 'Update an issue' })
   async updateIssue(
+    @Headers('x-org-id') orgId: string,
     @Param() params: IssueParamsDto,
-    @Body() dto: UpdateIssueDto
+    @Body() dto: UpdateIssueDto,
+    @CurrentUser() user: any
   ) {
-    return this.issuesService.updateIssue(params.id, dto);
+    return this.issuesService.updateIssue(orgId, params.id, user.id, dto);
   }
 
   @Delete(':id')
   @UseGuards(IssueOwnershipGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
   @ApiOperation({ summary: 'Soft delete an issue' })
-  async deleteIssue(@Param() params: IssueParamsDto) {
-    return this.issuesService.deleteIssue(params.id);
+  async deleteIssue(
+    @Headers('x-org-id') orgId: string,
+    @Param() params: IssueParamsDto,
+    @CurrentUser() user: any
+  ) {
+    return this.issuesService.deleteIssue(orgId, params.id, user.id);
   }
 
   // --- Comments ---
@@ -71,16 +81,20 @@ export class IssuesController {
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
   @ApiOperation({ summary: 'Add a comment to an issue' })
   async addComment(
+    @Headers('x-org-id') orgId: string,
     @Param() params: IssueParamsDto,
     @Body() dto: CreateCommentDto,
     @CurrentUser() user: any
   ) {
-    return this.issuesService.addComment({ ...dto, issueId: params.id }, user.id);
+    return this.issuesService.addComment(orgId, { ...dto, issueId: params.id }, user.id);
   }
 
   @Get(':id/comments')
   @ApiOperation({ summary: 'Get comments for an issue' })
-  async getComments(@Param() params: IssueParamsDto) {
-    return this.issuesService.getComments(params.id);
+  async getComments(
+    @Headers('x-org-id') orgId: string,
+    @Param() params: IssueParamsDto
+  ) {
+    return this.issuesService.getComments(orgId, params.id);
   }
 }

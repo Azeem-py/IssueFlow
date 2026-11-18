@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { IssueStatus, IssuePriority, CreateIssueInput } from '@issueflow/types';
 
 export class CreateIssueDto implements CreateIssueInput {
@@ -35,6 +36,7 @@ export class CreateIssueDto implements CreateIssueInput {
 
   @ApiProperty({ example: 'assignee-uuid', required: false })
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsUUID()
   assigneeId?: string;
 }

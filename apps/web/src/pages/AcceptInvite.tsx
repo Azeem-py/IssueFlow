@@ -1,69 +1,98 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
+import { Alert, Button, Spinner } from '@issueflow/ui';
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { AuthShell } from '../components/AuthShell';
 
 export function AcceptInvite() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, setCurrentOrg, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const attemptedRef = useRef(false);
 
   const acceptInviteMutation = useMutation({
-    mutationFn: async (token: string) => {
-      const { data } = await api.post('/organizations/invites/accept', { token });
+    mutationFn: async (inviteToken: string) => {
+      const { data } = await api.post('/organizations/invites/accept', { token: inviteToken });
       return data;
     },
-    onSuccess: async () => {
-      // Refresh user to get the new membership
+    onSuccess: async (data: any) => {
       await refreshUser();
-      navigate('/');
+      if (data?.organization) {
+        setCurrentOrg({ ...data.organization, members: [{ role: data.role }] });
+      }
+      navigate('/dashboard');
     },
     onError: (err: any) => {
-      setError(err.response?.data?.message || 'Failed to accept invitation');
-    }
+      setError(err.response?.data?.message || 'This invitation could not be accepted. It may be expired or already used.');
+    },
   });
 
   useEffect(() => {
+    if (isLoading) return;
+
     if (!user) {
-      // If not logged in, redirect to login but save the invite token for later
       localStorage.setItem('pending_invite_token', token || '');
       navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
 
-    if (token && !acceptInviteMutation.isPending && !acceptInviteMutation.isSuccess && !error) {
+    if (!token) {
+      setError('This invitation link is missing its token.');
+      return;
+    }
+
+    if (!attemptedRef.current) {
+      attemptedRef.current = true;
       acceptInviteMutation.mutate(token);
     }
-  }, [user, token, navigate]);
+  }, [user, token, navigate, isLoading]);
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background-dark flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-card-dark border border-slate-800 rounded-xl p-8 text-center">
-          <span className="material-symbols-outlined text-rose-500 text-6xl mb-4">error</span>
-          <h2 className="text-2xl font-bold mb-2">Invitation Error</h2>
-          <p className="text-slate-500 mb-6">{error}</p>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors"
+      <AuthShell
+        title="Invitation couldn’t be accepted"
+        description="The link may be expired, revoked, or already used."
+        footer={
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="font-medium text-brand-300 transition-colors hover:text-brand-200"
           >
-            Go to Dashboard
+            Continue to your workspace
           </button>
+        }
+      >
+        <div className="space-y-4">
+          <Alert tone="danger" title="Invitation error" description={error} />
+          <Button fullWidth onClick={() => navigate('/dashboard')}>
+            Go to dashboard
+          </Button>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background-dark flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-card-dark border border-slate-800 rounded-xl p-8 text-center">
-        <div className="animate-spin size-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-6"></div>
-        <h2 className="text-2xl font-bold mb-2">Accepting Invitation</h2>
-        <p className="text-slate-500">Please wait while we add you to the organization...</p>
+    <AuthShell
+      title="Joining workspace"
+      description="We’re adding you to the workspace. This usually takes a moment."
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 rounded-lg border border-subtle bg-panel p-4">
+          <Spinner className="size-5 text-brand-400" />
+          <div>
+            <p className="text-[13px] font-medium text-ink">Accepting invitation</p>
+            <p className="mt-0.5 text-[11.5px] text-ink-muted">Please keep this page open.</p>
+          </div>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-elevated">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-brand-500/60" />
+        </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }

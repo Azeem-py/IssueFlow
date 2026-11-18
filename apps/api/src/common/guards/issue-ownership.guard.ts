@@ -18,13 +18,14 @@ export class IssueOwnershipGuard implements CanActivate {
     const issueId = request.params.id;
     const membership = request.membership; // Provided by OrgMemberGuard
 
-    if (!issueId) return true;
+    if (!issueId || !membership) return true;
 
     const issue = await this.prisma.issue.findUnique({
       where: { id: issueId },
     });
 
-    if (!issue || issue.deletedAt) {
+    // Never allow access to an issue from a different workspace.
+    if (!issue || issue.organizationId !== membership.organizationId) {
       throw new NotFoundException('Issue not found');
     }
 
@@ -33,12 +34,13 @@ export class IssueOwnershipGuard implements CanActivate {
       return true;
     }
 
-    // Members can only modify their own issues
+    // Members can edit and move any issue in their workspace, but may only
+    // delete issues they authored. Viewers are blocked earlier by @Roles().
     if (membership.role === UserRole.MEMBER) {
-      if (issue.authorId === user.id) {
-        return true;
+      if (request.method === 'DELETE' && issue.authorId !== user.id) {
+        throw new ForbiddenException('You can only delete your own issues');
       }
-      throw new ForbiddenException('You can only modify your own issues');
+      return true;
     }
 
     // Viewers cannot modify anything

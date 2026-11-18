@@ -2,6 +2,8 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { IssueSequenceService } from './issue-sequence.service';
 import { PushService } from '../notifications/push.service';
+import { ActivityService } from '../activity/activity.service';
+import { ActivityAction } from '@prisma/client';
 import { CreateIssueInput, SearchFilters, CreateCommentInput } from '@issueflow/types';
 
 @Injectable()
@@ -11,10 +13,43 @@ export class IssuesService {
   constructor(
     private prisma: PrismaService,
     private sequenceService: IssueSequenceService,
-    private pushService: PushService
+    private pushService: PushService,
+    private activityService: ActivityService,
   ) {}
 
-  async createIssue(dto: CreateIssueInput, authorId: string) {
+  private async assertIssueInOrg(issueId: string, orgId: string) {
+    const issue = await this.prisma.issue.findUnique({ where: { id: issueId } });
+    if (!issue || issue.organizationId !== orgId) {
+      throw new NotFoundException('Issue not found');
+    }
+    return issue;
+  }
+
+  private async assertMemberOfOrg(orgId: string, userId: string) {
+    const member = await this.prisma.member.findUnique({
+      where: { userId_organizationId: { userId, organizationId: orgId } },
+    });
+    if (!member || member.deletedAt) {
+      throw new BadRequestException('Assignee must be a member of this organization');
+    }
+    return member;
+  }
+
+  async createIssue(dto: CreateIssueInput, authorId: string, orgId: string) {
+    if (dto.organizationId && dto.organizationId !== orgId) {
+      throw new BadRequestException('Organization does not match the requested workspace');
+    }
+
+    // Make sure the project belongs to the workspace the user is acting in.
+    const project = await this.prisma.project.findUnique({ where: { id: dto.projectId } });
+    if (!project || project.organizationId !== orgId) {
+      throw new BadRequestException('Project not found in this organization');
+    }
+
+    if (dto.assigneeId) {
+      await this.assertMemberOfOrg(orgId, dto.assigneeId);
+    }
+
     // Atomic sequential numbering
     const shortId = await this.sequenceService.getNextShortId(dto.projectId);
     this.logger.log(`Creating issue ${shortId} in project ${dto.projectId} by user ${authorId}`);
@@ -27,7 +62,7 @@ export class IssuesService {
         status: dto.status || 'BACKLOG',
         priority: dto.priority || 'MEDIUM',
         projectId: dto.projectId,
-        organizationId: dto.organizationId,
+        organizationId: orgId,
         authorId,
         assigneeId: dto.assigneeId || null,
       },
@@ -36,9 +71,18 @@ export class IssuesService {
       }
     });
 
+    await this.activityService.log({
+      action: ActivityAction.ISSUE_CREATED,
+      organizationId: orgId,
+      userId: authorId,
+      issueId: issue.id,
+      projectId: issue.projectId,
+      metadata: { shortId: issue.shortId, title: issue.title },
+    });
+
     // Notify all org members (Feature: Issue Creation Notification)
     const members = await this.prisma.member.findMany({
-      where: { organizationId: dto.organizationId },
+      where: { organizationId: orgId },
       select: { userId: true },
     });
 
@@ -71,6 +115,12 @@ export class IssuesService {
         ...(filters.priority && { priority: { in: filters.priority } }),
         ...(filters.projectId && { projectId: filters.projectId }),
         ...(filters.assigneeId && { assigneeId: filters.assigneeId }),
+        ...(filters.q && {
+          OR: [
+            { title: { contains: filters.q, mode: 'insensitive' as const } },
+            { shortId: { contains: filters.q, mode: 'insensitive' as const } },
+          ],
+        }),
       },
       orderBy: { createdAt: 'desc' },
       include: { 
@@ -81,7 +131,7 @@ export class IssuesService {
     });
   }
 
-  async getIssue(issueId: string) {
+  async getIssue(orgId: string, issueId: string) {
     const issue = await this.prisma.issue.findUnique({
       where: { id: issueId },
       include: {
@@ -92,21 +142,37 @@ export class IssuesService {
       }
     });
 
-    if (!issue) throw new NotFoundException('Issue not found');
+    if (!issue || issue.organizationId !== orgId) throw new NotFoundException('Issue not found');
     return issue;
   }
 
-  async deleteIssue(issueId: string) {
-    // Soft delete
-    return this.prisma.issue.update({
+  async deleteIssue(orgId: string, issueId: string, actorId: string) {
+    const issue = await this.assertIssueInOrg(issueId, orgId);
+
+    const deleted = await this.prisma.issue.update({
       where: { id: issueId },
       data: { deletedAt: new Date() }
     });
+
+    await this.activityService.log({
+      action: ActivityAction.ISSUE_DELETED,
+      organizationId: orgId,
+      userId: actorId,
+      issueId: issue.id,
+      projectId: issue.projectId,
+      metadata: { shortId: issue.shortId, title: issue.title },
+    });
+
+    return deleted;
   }
 
-  async updateIssue(issueId: string, dto: any) {
-    // Fetch current issue to detect assignee change
-    const current = await this.prisma.issue.findUnique({ where: { id: issueId } });
+  async updateIssue(orgId: string, issueId: string, actorId: string, dto: any) {
+    // Fetch current issue to detect assignee change and enforce tenant isolation
+    const current = await this.assertIssueInOrg(issueId, orgId);
+
+    if (dto.assigneeId) {
+      await this.assertMemberOfOrg(orgId, dto.assigneeId);
+    }
 
     const updated = await this.prisma.issue.update({
       where: { id: issueId },
@@ -118,6 +184,23 @@ export class IssuesService {
         ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId || null }),
       },
     });
+
+    const changes: Record<string, unknown> = {};
+    if (dto.status && dto.status !== current.status) changes.status = { from: current.status, to: dto.status };
+    if (dto.priority && dto.priority !== current.priority) changes.priority = { from: current.priority, to: dto.priority };
+    if (dto.assigneeId !== undefined && dto.assigneeId !== current.assigneeId) changes.assigneeId = { from: current.assigneeId, to: dto.assigneeId || null };
+    if (dto.title && dto.title !== current.title) changes.title = { from: current.title, to: dto.title };
+
+    if (Object.keys(changes).length > 0) {
+      await this.activityService.log({
+        action: ActivityAction.ISSUE_UPDATED,
+        organizationId: orgId,
+        userId: actorId,
+        issueId: updated.id,
+        projectId: updated.projectId,
+        metadata: { shortId: updated.shortId, changes },
+      });
+    }
 
     // Notify the newly assigned user (if assignee changed)
     if (
@@ -137,12 +220,15 @@ export class IssuesService {
 
   // --- Comments ---
 
-  async addComment(dto: CreateCommentInput, authorId: string) {
-    const issue = await this.prisma.issue.findUnique({
-      where: { id: dto.issueId }
-    });
+  async addComment(orgId: string, dto: CreateCommentInput, authorId: string) {
+    const issue = await this.assertIssueInOrg(dto.issueId, orgId);
 
-    if (!issue) throw new NotFoundException('Issue not found');
+    if (dto.parentId) {
+      const parent = await this.prisma.comment.findUnique({ where: { id: dto.parentId } });
+      if (!parent || parent.issueId !== issue.id) {
+        throw new BadRequestException('Parent comment does not belong to this issue');
+      }
+    }
 
     this.logger.log(`Adding comment to issue ${dto.issueId} by user ${authorId}`);
 
@@ -158,10 +244,28 @@ export class IssuesService {
       }
     });
 
+    await this.activityService.log({
+      action: ActivityAction.COMMENT_ADDED,
+      organizationId: orgId,
+      userId: authorId,
+      issueId: issue.id,
+      projectId: issue.projectId,
+      metadata: { commentId: newComment.id, shortId: issue.shortId },
+    });
+
+    // Only allow mentioning users who are members of this workspace.
+    const memberIds = new Set(
+      (await this.prisma.member.findMany({
+        where: { organizationId: orgId },
+        select: { userId: true },
+      })).map((m) => m.userId),
+    );
+    const validMentions = (dto.mentions || []).filter((userId) => memberIds.has(userId));
+
     // Handle @mentions (existing logic)
-    const mentionedOthers = (dto.mentions || []).filter((userId) => userId !== authorId);
-    if (dto.mentions && dto.mentions.length > 0) {
-      const notificationData = dto.mentions.map((userId) => ({
+    const mentionedOthers = validMentions.filter((userId) => userId !== authorId);
+    if (validMentions.length > 0) {
+      const notificationData = validMentions.map((userId) => ({
         type: 'MENTION',
         userId,
         actorId: authorId,
@@ -255,7 +359,9 @@ export class IssuesService {
     return newComment;
   }
 
-  async getComments(issueId: string) {
+  async getComments(orgId: string, issueId: string) {
+    await this.assertIssueInOrg(issueId, orgId);
+
     // We'll fetch all comments for the issue and build the tree in memory or use include for one level
     // For simplicity and to support "deep" nesting as requested, we fetch all and build tree.
     const allComments = await this.prisma.comment.findMany({

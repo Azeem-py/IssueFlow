@@ -35,11 +35,11 @@ IssueFlow is a high-performance, multi-tenant issue tracking system. It is desig
 - **Generate Prisma Client:** `pnpm --filter api prisma:generate`
 - **Run Migrations:** `pnpm --filter api prisma:migrate`
 - **Open Prisma Studio:** `pnpm --filter api prisma:studio`
-- **Default Port:** `3000`
-- **Swagger Docs:** `http://localhost:3000/api/docs`
+- **Default Port:** `8034` (configurable with `PORT`)
+- **Swagger Docs:** `http://localhost:8034/api/docs`
 
 ### Web Specifics (`apps/web`)
-- **Default Port:** `5173` (Vite)
+- **Default Port:** `8033` (Vite, configured in `vite.config.ts`)
 
 ---
 

@@ -26,7 +26,8 @@ export function usePushNotifications() {
   const { user, currentOrg } = useAuth();
 
   useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
+    const hasVapidKey = Boolean(import.meta.env.VITE_VAPID_PUBLIC_KEY);
+    if (hasVapidKey && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
       

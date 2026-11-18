@@ -17,7 +17,7 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get dashboard statistics' })
   async getStats(@Req() req: Request) {
     const orgId = req.headers['x-org-id'] as string;
-    const userId = (req.user as any).userId;
+    const userId = (req.user as any).id;
     return this.dashboardService.getStats(orgId, userId);
   }
 }

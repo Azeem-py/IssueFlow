@@ -1,13 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../lib/api';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  EyeIcon,
+  EyeOffIcon,
+  Input,
+  LockIcon,
+  MailIcon,
+  Spinner,
+} from '@issueflow/ui';
 import { useAuthQueries } from '../hooks/useAuthQueries';
 import { useAuth } from '../contexts/AuthContext';
+import { AuthShell } from '../components/AuthShell';
 
 export function Login() {
   const { user, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  const redirectParam = searchParams.get('redirect');
+  const redirect =
+    redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+      ? redirectParam
+      : '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,137 +32,102 @@ export function Login() {
   const { login } = useAuthQueries();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (!isLoading && user) {
-      navigate(redirect || '/dashboard', { replace: true });
-    }
+    if (!isLoading && user) navigate(redirect, { replace: true });
   }, [user, isLoading, navigate, redirect]);
 
-  // Prevent flicker during initial load
   if (isLoading || user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background-dark gap-4">
-        <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-        <p className="text-slate-500 font-medium animate-pulse">Initializing workspace...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas">
+        <Spinner className="size-6 text-brand-400" />
+        <p className="text-[12.5px] text-ink-muted">Loading your workspace…</p>
       </div>
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
-    
     try {
       await login.mutateAsync({ email, password, rememberMe });
-      
-      // Small pause to ensure browser cookie write is prioritized before reload
-      await new Promise(r => setTimeout(r, 100));
-      
-      if (redirect) {
-        window.location.href = redirect;
-      } else {
-        window.location.href = '/dashboard';
-      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.location.href = redirect;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(err.response?.data?.message || 'Email or password is incorrect.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background-dark relative overflow-hidden">
-      {/* Decorative gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]"></div>
+    <AuthShell
+      title="Sign in"
+      description="Welcome back. Enter your details to continue to your workspace."
+      footer={
+        <>
+          New to IssueFlow?{' '}
+          <Link to="/signup" className="font-medium text-brand-300 underline decoration-brand-500/40 underline-offset-2 transition-colors hover:text-brand-200">
+            Create an account
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <Alert tone="danger" title="Could not sign in" description={error} />}
 
-      <div className="w-full max-w-md relative">
-        <div className="bg-card-dark/60 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center mb-10">
-            <Link to="/" className="size-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 mb-4 hover:scale-105 transition-transform">
-              <img src="/apple-touch-icon.png" alt="IssueFlow" className="size-full object-cover" />
-            </Link>
-            <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Welcome Back</h1>
-            <p className="text-slate-400 text-sm">Sign in to your IssueFlow account</p>
-          </div>
+        <Input
+          label="Email address"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="name@company.com"
+          leftIcon={<MailIcon />}
+        />
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-3 rounded-lg text-center">
-                {error}
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Email Address</label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">mail</span>
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
-                  placeholder="name@company.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2 ml-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Password</label>
-                <Link to="/forgot-password" title="Coming soon!" className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider">Forgot password?</Link>
-              </div>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">lock</span>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-12 pr-12 py-3 text-white outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-slate-600"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-primary transition-colors"
-                  tabIndex={-1}
-                >
-                  <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-800 bg-slate-900/50 text-primary focus:ring-primary/50 focus:ring-offset-0"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-xs font-bold text-slate-500 uppercase tracking-widest cursor-pointer">
-                Keep me logged in
-              </label>
-            </div>
-
-            <button 
-              type="submit" 
-
-              disabled={login.isPending}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:pointer-events-none"
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="login-password" className="text-xs font-medium text-ink-secondary">
+              Password
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-[11px] font-medium text-brand-300 transition-colors hover:text-brand-200"
             >
-              {login.isPending ? 'Signing in...' : 'Sign In'}
-              <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </button>
-          </form>
-
-          <p className="mt-8 text-center text-slate-500 text-sm">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary font-bold hover:underline">Get started for free</Link>
-          </p>
+              Forgot password?
+            </Link>
+          </div>
+          <Input
+            id="login-password"
+            type={showPassword ? 'text' : 'password'}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Your password"
+            leftIcon={<LockIcon />}
+            rightSlot={
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="rounded p-1 text-ink-muted transition-colors hover:text-ink"
+              >
+                {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+              </button>
+            }
+          />
         </div>
-      </div>
-    </div>
+
+        <Checkbox
+          label="Keep me signed in"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+        />
+
+        <Button type="submit" fullWidth loading={login.isPending} className="mt-1">
+          Sign in
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

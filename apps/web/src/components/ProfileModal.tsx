@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Avatar, Button, Dialog, Input, useToast } from '@issueflow/ui';
 import { useAuthQueries } from '../hooks/useAuthQueries';
 import { uploadToCloudinary } from '../lib/cloudinary';
 
@@ -10,6 +11,7 @@ interface ProfileModalProps {
 
 export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
   const { updateProfile } = useAuthQueries();
+  const { toast } = useToast();
   const [name, setName] = useState(user?.name || '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || '');
@@ -17,15 +19,23 @@ export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(user?.name || '');
+    setAvatarPreview(user?.avatarUrl || '');
+    setAvatarFile(null);
+    setError('');
+  }, [isOpen, user]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setIsSubmitting(true);
     setError('');
     try {
@@ -33,102 +43,67 @@ export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
       if (avatarFile) {
         finalAvatarUrl = await uploadToCloudinary(avatarFile);
       }
-      
+
       await updateProfile.mutateAsync({ name, avatarUrl: finalAvatarUrl });
+      toast({ tone: 'success', title: 'Profile updated' });
       onClose();
     } catch (err) {
-      setError('Failed to update profile');
-      console.error(err);
+      setError('Could not update your profile. Try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-card-dark rounded-[2.5rem] shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <h2 className="text-xl font-black tracking-tight">Account Settings</h2>
-          <button onClick={onClose} className="size-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined">close</span>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      title="Account settings"
+      description="Update how you appear to teammates in this workspace."
+      footer={
+        <>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="profile-form" size="sm" loading={isSubmitting} disabled={!name.trim()}>
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <form id="profile-form" onSubmit={handleSubmit} className="space-y-4">
+        {error && <Alert tone="danger" title="Could not save profile" description={error} />}
+
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="group relative size-16 shrink-0 overflow-hidden rounded-full border border-subtle bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
+            aria-label="Change profile picture"
+          >
+            <Avatar src={avatarPreview} name={name || user?.email} size="xl" className="size-full" />
+            <span className="absolute inset-0 flex items-center justify-center bg-slate-950/60 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+              Change
+            </span>
           </button>
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-ink">{user?.name || 'Your profile'}</p>
+            <p className="truncate text-[11.5px] text-ink-muted">{user?.email}</p>
+            <p className="mt-1 text-[11px] text-ink-disabled">PNG or JPG. Square images work best.</p>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-10 space-y-8">
-          <div className="flex flex-col items-center gap-4">
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="relative size-28 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 shadow-xl cursor-pointer overflow-hidden group transition-transform hover:scale-105"
-            >
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Avatar" className="size-full object-cover" />
-              ) : (
-                <div className="size-full flex items-center justify-center text-slate-400">
-                  <span className="material-symbols-outlined text-4xl">person</span>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                 <span className="material-symbols-outlined text-white">photo_camera</span>
-              </div>
-              {isSubmitting && avatarFile && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <div className="size-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                </div>
-              )}
-            </div>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Profile Picture</p>
-          </div>
 
-          <div className="space-y-6">
-             <div>
-               <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Full Name</label>
-               <input 
-                 type="text" 
-                 value={name}
-                 onChange={e => setName(e.target.value)}
-                 className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none font-bold text-sm"
-                 placeholder="Your Name"
-               />
-             </div>
-             <div>
-               <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Email Address</label>
-               <input 
-                 type="text" 
-                 disabled
-                 value={user?.email}
-                 className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed font-bold text-sm"
-               />
-             </div>
-          </div>
+        <Input
+          label="Display name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Your name"
+          autoFocus
+        />
 
-          {error && <p className="text-rose-500 text-xs font-bold text-center">{error}</p>}
-
-          <div className="flex gap-4 pt-4">
-            <button 
-              type="button" 
-              onClick={onClose}
-              className="flex-1 px-6 py-4 rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs uppercase tracking-widest"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-4 rounded-2xl font-black transition-all disabled:opacity-50 text-xs uppercase tracking-widest shadow-xl shadow-primary/25"
-            >
-              {isSubmitting ? (
-                <div className="flex items-center justify-center gap-2">
-                   <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                   <span>{avatarFile ? 'Uploading...' : 'Saving...'}</span>
-                </div>
-              ) : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <Input label="Email address" value={user?.email || ''} disabled readOnly hint="Email changes are managed by your account provider." />
+      </form>
+    </Dialog>
   );
 }

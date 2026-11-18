@@ -20,8 +20,16 @@ export class EmailService {
 
   async sendInvitationEmail(to: string, orgName: string, inviterName: string, inviteToken: string) {
     const inviteUrl = `${this.configService.get('FRONTEND_URL')}/invite/accept?token=${inviteToken}`;
-    const transporter = this.getTransporter();
     const user = this.configService.get('EMAIL_USER');
+
+    // Local development fallback: when SMTP isn't configured, keep the flow
+    // usable by printing the invitation link to the API console.
+    if (!user || !this.configService.get('EMAIL_PASSWORD')) {
+      console.log(`[DEV EMAIL] Invitation to "${orgName}" for ${to}: ${inviteUrl}`);
+      return;
+    }
+
+    const transporter = this.getTransporter();
 
     const mailOptions = {
       from: `"IssueFlow" <${user}>`,
@@ -51,8 +59,15 @@ export class EmailService {
   }
 
   async sendOtpEmail(to: string, otp: string) {
-    const transporter = this.getTransporter();
     const user = this.configService.get('EMAIL_USER');
+
+    // Local development fallback: print the OTP instead of requiring SMTP.
+    if (!user || !this.configService.get('EMAIL_PASSWORD')) {
+      console.log(`[DEV EMAIL] Password reset OTP for ${to}: ${otp}`);
+      return;
+    }
+
+    const transporter = this.getTransporter();
 
     const mailOptions = {
       from: `"IssueFlow" <${user}>`,

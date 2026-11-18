@@ -1,69 +1,345 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
-
 @import "tailwindcss";
+
+/* Scan the shared UI package so its utility classes are generated. */
+@source "../../../packages/ui/src";
 
 @custom-variant dark (&:is(.dark, .dark *));
 
+/* ------------------------------------------------------------------ */
+/* IssueFlow design tokens                                             */
+/* Canonical reference: .opencode/skills/issueflow-design-system       */
+/* ------------------------------------------------------------------ */
 @theme {
-  --color-primary: #6764f2;
-  --color-background-light: #f6f6f8;
-  --color-background-dark: #040914;
-  --color-surface-dark: #0b1120;
-  --color-card-dark: #0b1120;
+  /* Brand — green is the primary action color */
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-cyan-400: #22d3ee;
+
+  /* Semantic — always pair with text, icon, or another cue */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-purple: #8b5cf6;
+  --color-orange: #f97316;
+
+  /* Surfaces */
+  --color-canvas: #08111f;
+  --color-sidebar: #0b1422;
+  --color-panel: #0f172a;
+  --color-elevated: #172235;
+  --color-hover: #1e293b;
+  --color-selected: #12352f;
+
+  /* Lines */
+  --color-subtle: #1e293b;
+  --color-line: #334155;
+
+  /* Text */
+  --color-ink: #f1f5f9;
+  --color-ink-secondary: #cbd5e1;
+  --color-ink-muted: #94a3b8;
+  --color-ink-disabled: #8291a6;
+
+  /* Legacy aliases kept so existing screens inherit the new palette */
+  --color-primary: #10b981;
+  --color-primary-hover: #34d399;
+  --color-primary-pressed: #059669;
+  --color-background-light: #08111f;
+  --color-background-dark: #08111f;
+  --color-surface-dark: #0b1422;
+  --color-card-dark: #0f172a;
   --color-border-dark: #1e293b;
-  --color-slate-card: #0b1120;
+  --color-slate-card: #0f172a;
   --color-slate-border: #1e293b;
 
-  --font-display: "Outfit", "Inter", sans-serif;
-  --font-sans: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --animate-gradient: gradient 8s linear infinite;
-  --animate-fade-in-up: fade-in-up 1s ease-out forwards;
+  /* Radius (4–20px scale, full for pills) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
 
-  @keyframes gradient {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+  /* Elevation — restrained dark shadows */
+  --shadow-elevation-1: 0 1px 2px 0 rgb(2 6 23 / 0.40);
+  --shadow-elevation-2: 0 4px 16px -4px rgb(2 6 23 / 0.50);
+  --shadow-elevation-3: 0 16px 40px -12px rgb(2 6 23 / 0.65);
+  --shadow-elevation-4: 0 32px 72px -16px rgb(2 6 23 / 0.75);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Animations */
+  --animate-fade-in: fade-in 150ms var(--ease-standard) both;
+  --animate-scale-in: scale-in 160ms var(--ease-standard) both;
+  --animate-slide-up: slide-up 200ms var(--ease-standard) both;
+  --animate-toast-in: toast-in 180ms var(--ease-standard) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
-  @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(20px); }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 }
 
 @layer base {
+  :root {
+    color-scheme: dark;
+    --focus-ring: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-brand-400);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--color-canvas);
+  }
+
   body {
-    @apply font-sans antialiased text-slate-100 bg-background-dark;
+    @apply bg-canvas font-sans text-[14px] text-ink antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variant-ligatures: contextual;
   }
+
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight leading-[0.95];
+    @apply font-display tracking-tight text-ink;
   }
-  
-  .text-premium {
-    @apply font-display font-black uppercase tracking-tighter;
+
+  h1 { line-height: 1.2; }
+  h2 { line-height: 1.25; }
+  h3 { line-height: 1.3; }
+  h4, h5, h6 { line-height: 1.4; }
+
+  ::selection {
+    background-color: rgb(16 185 129 / 0.28);
+    color: var(--color-ink);
   }
-  
-  .text-brand {
-    @apply font-display font-black uppercase tracking-tight text-primary;
+
+  /* Visible keyboard focus everywhere, including legacy screens */
+  :where(a, button, [role="button"], [role="tab"], [role="switch"], summary):focus-visible {
+    outline: 2px solid var(--color-brand-400);
+    outline-offset: 2px;
+  }
+
+  dialog::backdrop {
+    background-color: rgb(2 6 23 / 0.72);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Subtle app canvas texture: two low-opacity brand glows */
+  #root {
+    min-height: 100vh;
+    background-image:
+      radial-gradient(60rem 32rem at 110% -10%, rgb(16 185 129 / 0.055), transparent 60%),
+      radial-gradient(48rem 28rem at -10% 110%, rgb(45 212 191 / 0.035), transparent 60%);
+    background-attachment: fixed;
   }
 }
 
 @layer utilities {
-  .perspective-1000 {
-    perspective: 1000px;
+  .custom-scrollbar,
+  .app-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
   }
 
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  .custom-scrollbar::-webkit-scrollbar,
+  .app-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
+  .custom-scrollbar::-webkit-scrollbar-track,
+  .app-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
+  .custom-scrollbar::-webkit-scrollbar-thumb,
+  .app-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(51 65 85 / 0.8);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+  .app-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(71 85 105 / 0.9);
+  }
+
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-brand-400);
+    outline-offset: 2px;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .surface-grid {
+    background-image:
+      linear-gradient(to right, rgb(51 65 85 / 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(51 65 85 / 0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .text-gradient-brand {
+    background-image: linear-gradient(100deg, var(--color-brand-300), var(--color-teal-400) 60%, var(--color-cyan-400));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-premium {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  .text-brand {
+    @apply font-display font-semibold tracking-tight text-brand-400;
+  }
+
+  /* Long-form issue and comment content */
+  .markdown {
+    @apply text-[13px] leading-relaxed text-ink-secondary;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .markdown h1,
+  .markdown h2,
+  .markdown h3,
+  .markdown h4 {
+    @apply font-semibold text-ink;
+    line-height: 1.35;
+  }
+
+  .markdown h1 { font-size: 1.15rem; }
+  .markdown h2 { font-size: 1.05rem; }
+  .markdown h3 { font-size: 0.975rem; }
+  .markdown h4 { font-size: 0.925rem; }
+
+  .markdown p {
+    margin: 0;
+  }
+
+  .markdown strong {
+    @apply font-semibold text-ink;
+  }
+
+  .markdown a {
+    @apply text-brand-300 underline decoration-brand-500/30 underline-offset-2;
+  }
+
+  .markdown ul,
+  .markdown ol {
+    padding-left: 1.25rem;
+  }
+
+  .markdown ul { list-style: disc; }
+  .markdown ol { list-style: decimal; }
+
+  .markdown li + li {
+    margin-top: 0.25rem;
+  }
+
+  .markdown li::marker {
+    color: var(--color-ink-disabled);
+  }
+
+  .markdown code {
+    @apply rounded border border-subtle bg-elevated px-1 py-0.5 font-mono text-[0.88em] text-brand-200;
+  }
+
+  .markdown pre {
+    @apply overflow-x-auto rounded-md border border-subtle bg-canvas p-3 font-mono text-[12px] leading-relaxed text-ink-secondary;
+  }
+
+  .markdown pre code {
+    @apply border-0 bg-transparent p-0 text-inherit;
+  }
+
+  .markdown blockquote {
+    @apply border-l-2 border-brand-500/30 pl-3 italic text-ink-muted;
+  }
+
+  .markdown hr {
+    @apply border-subtle;
+  }
+
+  .markdown table {
+    @apply w-full border-collapse text-[12px];
+  }
+
+  .markdown th,
+  .markdown td {
+    @apply border border-subtle px-2.5 py-1.5 text-left align-top;
+  }
+
+  .markdown th {
+    @apply bg-elevated font-medium text-ink;
+  }
+
+  .markdown img {
+    @apply rounded-lg border border-subtle;
+  }
+
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-spin {
+    animation-duration: 1.4s;
+  }
+
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-slide-up,
+  .animate-toast-in {
+    animation: none;
   }
 }

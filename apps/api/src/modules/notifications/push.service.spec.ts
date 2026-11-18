@@ -1,18 +1,14 @@
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PushService } from './push.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
-jest.mock('web-push', () => ({
-  setVapidDetails: jest.fn(),
-  sendNotification: jest.fn(),
-}));
-
 describe('PushService', () => {
   let service: PushService;
   let prisma: PrismaService;
 
-  const mockPrismaService = {
+  const mockPrismaService: any = {
     pushSubscription: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -24,8 +20,8 @@ describe('PushService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      if (key === 'VAPID_PUBLIC_KEY') return 'test-public-key';
-      if (key === 'VAPID_PRIVATE_KEY') return 'test-private-key';
+      if (key === 'VAPID_PUBLIC_KEY') return 'BA1P89Akb8rf2tBHiNqcqTO6cpTHTFzZ37t23UiUaVOgaOG0ogXANGASQd6rR6f1_DTYnv-OuTLce0Uvr1dLQXo';
+      if (key === 'VAPID_PRIVATE_KEY') return 'TinaRjTDO4G8Md17aZDpXOmbIEz8JkIVf8IFbSpbabs';
       if (key === 'VAPID_SUBJECT') return 'mailto:test@test.com';
       return null;
     }),

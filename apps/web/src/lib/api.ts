@@ -70,7 +70,7 @@ api.interceptors.response.use(
 
         // If refresh fails, we should logout the user locally and redirect to login
         // but only if we are currently on a protected route that requires auth.
-        const publicPaths = ['/', '/login', '/signup', '/forgot-password', '/invite/accept'];
+        const publicPaths = ['/', '/login', '/signup', '/forgot-password', '/invite/accept', '/design-system'];
         const isPublicPath = publicPaths.includes(window.location.pathname);
         
         if (typeof window !== 'undefined' && !isPublicPath) {

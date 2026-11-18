@@ -26,6 +26,15 @@ export class OrgMemberGuard implements CanActivate {
       throw new BadRequestException('Organization ID (x-org-id header) is required');
     }
 
+    // Make sure the workspace still exists (and is not soft-deleted).
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+
+    if (!organization) {
+      throw new ForbiddenException('Organization not found or has been deleted');
+    }
+
     const member = await this.prisma.member.findUnique({
       where: {
         userId_organizationId: {

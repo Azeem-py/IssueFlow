@@ -1,411 +1,585 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CheckCircleIcon,
+  ChevronRightIcon,
+  CircleDotIcon,
+  FolderKanbanIcon,
+  InboxIcon,
+  LoaderIcon,
+  MailIcon,
+  PlusIcon,
+  RocketIcon,
+  ShieldIcon,
+  TargetIcon,
+  TrendingUpIcon,
+  UsersIcon,
+  XIcon,
+  useToast,
+} from '@issueflow/ui';
+import { PageHeader } from '../components/PageHeader';
+import { CreateOrgModal } from '../components/CreateOrgModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { usePermissions } from '../hooks/usePermissions';
 import { useDashboardQueries } from '../hooks/useDashboardQueries';
 import { useAuthQueries } from '../hooks/useAuthQueries';
+import { useOrgQueries } from '../hooks/useOrgQueries';
 import { useAuth } from '../contexts/AuthContext';
-import { formatDistanceToNow } from 'date-fns';
-import { CreateOrgModal } from '../components/CreateOrgModal';
 import api from '../lib/api';
 
+const ACTIVITY_ICONS: Record<string, React.ComponentType<any>> = {
+  ISSUE_CREATED: CircleDotIcon,
+  ISSUE_UPDATED: LoaderIcon,
+  ISSUE_DELETED: XIcon,
+  COMMENT_ADDED: MailIcon,
+  MEMBER_INVITED: UsersIcon,
+  MEMBER_JOINED: UsersIcon,
+  PROJECT_CREATED: FolderKanbanIcon,
+  PROJECT_DELETED: FolderKanbanIcon,
+};
+
+function statIcon(label: string) {
+  const value = label.toLowerCase();
+  if (value.includes('progress') || value.includes('active')) return LoaderIcon;
+  if (value.includes('done') || value.includes('complete') || value.includes('resolved')) return CheckCircleIcon;
+  if (value.includes('member') || value.includes('people') || value.includes('team')) return UsersIcon;
+  if (value.includes('project')) return FolderKanbanIcon;
+  if (value.includes('task') || value.includes('issue')) return InboxIcon;
+  return TargetIcon;
+}
+
 export function Dashboard() {
-  const { currentOrg, setCurrentOrg, refreshUser } = useAuth();
-  const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } = usePermissions();
+  const navigate = useNavigate();
+  const { currentOrg, setCurrentOrg, refreshUser, user } = useAuth();
+  const { isOwner, isAdmin, isMember, isViewer, canManageBilling, canInviteMembers, canViewAuditLogs, role } =
+    usePermissions();
   const { useDashboardStats, useActivityFeed, useAuditLogs } = useDashboardQueries();
-  const { useMyInvitations, declineInvitation } = useAuthQueries();
+  const { useMyInvitations, declineInvitation, deleteOrganization } = useAuthQueries();
+  const { useMembers, useInvites } = useOrgQueries();
+  const { toast } = useToast();
 
   const { data: statsData, isLoading: isLoadingStats } = useDashboardStats();
   const { data: activityFeed, isLoading: isLoadingActivity } = useActivityFeed();
   const { data: auditLogs, isLoading: isLoadingAudit } = useAuditLogs();
   const { data: myInvitations, isLoading: isLoadingInvites } = useMyInvitations();
+  const { data: members = [] } = useMembers();
+  const { data: pendingInvites = [] } = useInvites(canInviteMembers);
 
   const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [acceptingInviteId, setAcceptingInviteId] = useState<string | null>(null);
 
   const baseStats = statsData?.baseStats || [];
   const advancedStats = statsData?.advancedStats || [];
-
   const statsToRender = canInviteMembers ? [...baseStats, ...advancedStats] : baseStats;
+
+  const firstName = (user?.name || '').trim().split(/\s+/)[0] || '';
+  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Member';
+
+  const describeActivity = (activity: any) => {
+    const meta = activity.metadata || {};
+    switch (activity.action) {
+      case 'ISSUE_CREATED':
+        return <>created <span className="font-medium text-brand-300">{meta.shortId}</span>{meta.title ? ` — ${meta.title}` : ''}</>;
+      case 'ISSUE_UPDATED': {
+        const fields = meta.changes ? Object.keys(meta.changes) : [];
+        return <>updated <span className="font-medium text-brand-300">{meta.shortId || 'an issue'}</span>{fields.length ? ` (${fields.join(', ')})` : ''}</>;
+      }
+      case 'ISSUE_DELETED':
+        return <>deleted <span className="font-medium text-brand-300">{meta.shortId || 'an issue'}</span></>;
+      case 'COMMENT_ADDED':
+        return <>commented on <span className="font-medium text-brand-300">{meta.shortId || 'an issue'}</span></>;
+      case 'PROJECT_CREATED':
+        return <>created project <span className="font-medium text-brand-300">{meta.name}</span></>;
+      case 'PROJECT_UPDATED':
+        return <>updated project <span className="font-medium text-brand-300">{meta.name || 'a project'}</span></>;
+      case 'PROJECT_DELETED':
+        return <>deleted project <span className="font-medium text-brand-300">{meta.name || 'a project'}</span></>;
+      case 'MEMBER_INVITED':
+        return <>invited <span className="font-medium text-brand-300">{meta.invitedEmail}</span> as {meta.role?.toLowerCase()}</>;
+      case 'MEMBER_JOINED':
+        return <>joined the workspace</>;
+      case 'MEMBER_ROLE_UPDATED':
+        return <>changed {meta.targetEmail || 'a member'}&apos;s role to <span className="font-medium text-brand-300">{meta.newRole?.toLowerCase()}</span></>;
+      case 'MEMBER_REMOVED':
+        return <>removed <span className="font-medium text-brand-300">{meta.targetEmail || 'a member'}</span></>;
+      default:
+        return <>{activity.action.replace(/_/g, ' ').toLowerCase()}</>;
+    }
+  };
 
   const handleAcceptInvite = async (token: string, inviteId: string) => {
     setAcceptingInviteId(inviteId);
     try {
       await api.post('/organizations/invites/accept', { token });
       await refreshUser();
+      toast({ tone: 'success', title: 'Invitation accepted', description: 'The workspace is now available in your switcher.' });
     } catch (err) {
-      console.error('Failed to accept invite', err);
+      toast({ tone: 'error', title: 'Could not accept invitation', description: 'Try again or ask a workspace admin to resend it.' });
     } finally {
       setAcceptingInviteId(null);
     }
   };
 
+  const handleDeclineInvite = (inviteId: string) => {
+    declineInvitation.mutate(inviteId, {
+      onSuccess: () => toast({ tone: 'success', title: 'Invitation declined' }),
+      onError: () => toast({ tone: 'error', title: 'Could not decline invitation', description: 'Try again.' }),
+    });
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!currentOrg) return;
+    try {
+      await deleteOrganization.mutateAsync(currentOrg.id);
+      setIsDeleteOpen(false);
+      setCurrentOrg(null);
+      toast({ tone: 'success', title: 'Workspace deleted' });
+      navigate('/dashboard');
+    } catch (err) {
+      toast({ tone: 'error', title: 'Could not delete workspace', description: 'Try again or contact support.' });
+    }
+  };
+
   if (!currentOrg) {
     return (
-      <div className="max-w-4xl mx-auto py-12 space-y-12">
-        <div className="text-center space-y-4">
-          <div className="size-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-4xl text-primary">rocket_launch</span>
+      <div className="mx-auto max-w-3xl py-6 md:py-10">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl border border-subtle bg-panel text-brand-300">
+            <RocketIcon className="size-5" />
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-white uppercase italic">Welcome to IssueFlow</h1>
-          <p className="text-slate-400 text-lg max-w-lg mx-auto">
-            You are not part of any organization yet. Create your own workspace or check your pending invitations to get started.
+          <h1 className="text-[24px] font-semibold tracking-tight text-ink">Welcome to IssueFlow</h1>
+          <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-ink-muted">
+            Create a workspace or accept an invitation to start tracking work with your team.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Create Org Card */}
-          <div className="bg-white dark:bg-card-dark rounded-[2rem] border border-slate-200 dark:border-slate-800 p-8 flex flex-col justify-between hover:border-primary/50 transition-colors group">
-            <div>
-              <div className="size-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-primary">add_business</span>
-              </div>
-              <h2 className="text-xl font-black uppercase tracking-tight text-white mb-2">Create Workspace</h2>
-              <p className="text-slate-500 text-sm leading-relaxed mb-8">
-                Start fresh with your own organization. You'll be the owner and can invite your team.
-              </p>
-            </div>
-            <button 
-              onClick={() => setIsCreateOrgOpen(true)}
-              className="w-full py-4 bg-primary text-white font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-            >
-              Start Building
-            </button>
-          </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="flex flex-col p-5">
+            <span className="mb-4 flex size-9 items-center justify-center rounded-lg border border-subtle bg-elevated text-brand-300">
+              <PlusIcon className="size-4" />
+            </span>
+            <h2 className="text-[15px] font-semibold text-ink">Create a workspace</h2>
+            <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-ink-muted">
+              Start fresh with your own organization. You&apos;ll be the owner and can invite your team.
+            </p>
+            <Button className="mt-5 w-full" onClick={() => setIsCreateOrgOpen(true)}>
+              Create workspace
+            </Button>
+          </Card>
 
-          {/* Invitations Card */}
-          <div className="bg-white dark:bg-card-dark rounded-[2rem] border border-slate-200 dark:border-slate-800 p-8 flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <div className="size-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-emerald-500">mail</span>
-              </div>
+          <Card className="flex flex-col p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg border border-subtle bg-elevated text-teal-300">
+                <MailIcon className="size-4" />
+              </span>
               {myInvitations && myInvitations.length > 0 && (
-                <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">
-                  {myInvitations.length} Pending
-                </span>
+                <Badge tone="warning" dot>
+                  {myInvitations.length} pending
+                </Badge>
               )}
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-white mb-2">Join Workspace</h2>
-            <p className="text-slate-500 text-sm leading-relaxed mb-6">
-              Check if your teammates have already invited you to a workspace.
+            <h2 className="text-[15px] font-semibold text-ink">Join a workspace</h2>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-muted">
+              Accept an invitation from a teammate to join their workspace.
             </p>
 
-            <div className="flex-1 space-y-3 overflow-y-auto max-h-[200px] pr-2 custom-scrollbar">
+            <div className="mt-4 flex-1 space-y-2">
               {isLoadingInvites ? (
-                <div className="animate-pulse space-y-3">
-                  <div className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
-                  <div className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
+                <div className="space-y-2">
+                  <div className="h-12 animate-pulse rounded-md bg-elevated" />
+                  <div className="h-12 animate-pulse rounded-md bg-elevated" />
                 </div>
               ) : myInvitations && myInvitations.length > 0 ? (
                 myInvitations.map((invite: any) => (
-                  <div key={invite.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-subtle bg-canvas/50 px-3 py-2.5"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
                       {invite.organization.logoUrl ? (
-                        <img src={invite.organization.logoUrl} className="size-8 rounded-lg object-cover" alt="" />
+                        <img src={invite.organization.logoUrl} className="size-7 rounded object-cover" alt="" />
                       ) : (
-                        <div className="size-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-xs">
+                        <span className="flex size-7 items-center justify-center rounded bg-elevated text-[11px] font-semibold text-ink-secondary">
                           {invite.organization.name.charAt(0)}
-                        </div>
+                        </span>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{invite.organization.name}</p>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Role: {invite.role}</p>
+                        <p className="truncate text-[12.5px] font-medium text-ink">{invite.organization.name}</p>
+                        <p className="text-[11px] capitalize text-ink-muted">{invite.role.toLowerCase()}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => declineInvitation.mutate(invite.id)}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleDeclineInvite(invite.id)}
                         disabled={declineInvitation.isPending || acceptingInviteId === invite.id}
-                        className="p-2 text-slate-500 hover:text-rose-500 transition-colors disabled:opacity-50"
-                        title="Decline"
+                        aria-label={`Decline invitation to ${invite.organization.name}`}
+                        className="flex size-7 items-center justify-center rounded-md text-ink-disabled transition-colors hover:bg-danger/10 hover:text-red-300 disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-lg">close</span>
+                        <XIcon className="size-3.5" />
                       </button>
-                      <button 
+                      <Button
+                        size="sm"
                         onClick={() => handleAcceptInvite(invite.token, invite.id)}
-                        disabled={declineInvitation.isPending || acceptingInviteId === invite.id}
-                        className="p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors disabled:opacity-50"
-                        title="Accept"
+                        loading={acceptingInviteId === invite.id}
                       >
-                        {acceptingInviteId === invite.id ? (
-                          <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <span className="material-symbols-outlined text-lg">check</span>
-                        )}
-                      </button>
+                        Accept
+                      </Button>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="h-32 flex flex-col items-center justify-center text-slate-600 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
-                  <span className="material-symbols-outlined mb-2 opacity-50">drafts</span>
-                  <p className="text-xs font-bold uppercase tracking-widest">No invitations found</p>
+                <div className="flex h-20 flex-col items-center justify-center rounded-md border border-dashed border-subtle text-center">
+                  <p className="text-[12px] font-medium text-ink-secondary">No invitations</p>
+                  <p className="mt-0.5 text-[11px] text-ink-muted">Ask an admin to invite your email.</p>
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         </div>
 
-        <CreateOrgModal 
-          isOpen={isCreateOrgOpen} 
-          onClose={() => setIsCreateOrgOpen(false)} 
+        <CreateOrgModal
+          isOpen={isCreateOrgOpen}
+          onClose={() => setIsCreateOrgOpen(false)}
           onSuccess={(org) => setCurrentOrg(org)}
         />
       </div>
     );
   }
 
+  const roleDescription = isOwner
+    ? 'You have full control over this workspace, including billing and security.'
+    : isAdmin
+      ? 'You can manage projects, invite members, and oversee workspace operations.'
+      : isMember
+        ? 'You can create issues, comment, and move work across the board.'
+        : 'You have read-only access to projects and issues in this workspace.';
+
   return (
-    <div className="space-y-8">
-      {/* Role Banner */}
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-100 dark:bg-card-dark border border-slate-200 dark:border-slate-800">
-        <span className={`material-symbols-outlined text-xl ${isOwner ? 'text-primary' : isAdmin ? 'text-emerald-500' : isViewer ? 'text-blue-400' : 'text-slate-400'}`}>
-          {isOwner ? 'stars' : isAdmin ? 'admin_panel_settings' : isViewer ? 'visibility' : 'badge'}
-        </span>
-        <div>
-          <h2 className="text-sm font-bold tracking-tight">Welcome back, {role.charAt(0) + role.slice(1).toLowerCase()}</h2>
-          <p className="text-xs text-slate-500">
-            {isOwner && "You have full control over the workspace, including billing and security."}
-            {isAdmin && "You can manage projects, invite users, and oversee all workspace operations."}
-            {isMember && "Here is your issue overview and recent activity."}
-            {isViewer && "You have read-only access to this workspace's projects and issues."}
+    <div className="space-y-5">
+      <PageHeader
+        title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
+        description={`Here's what's moving in ${currentOrg.name}.`}
+        actions={
+          canInviteMembers ? (
+            <Button variant="secondary" size="sm" onClick={() => navigate('/dashboard/team')}>
+              <UsersIcon className="size-4" />
+              Manage team
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/* Role context */}
+      <div className="flex flex-col gap-3 rounded-lg border border-subtle bg-panel/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-500/10 text-brand-300">
+            <ShieldIcon className="size-4" />
+          </span>
+          <p className="text-[12.5px] leading-relaxed text-ink-muted">
+            <span className="font-medium text-ink">{roleLabel} access</span>
+            <span className="mx-1.5 text-ink-disabled">·</span>
+            {roleDescription}
           </p>
         </div>
+        {isViewer && (
+          <Badge tone="info" dot>
+            Read-only
+          </Badge>
+        )}
       </div>
 
-      {/* Stats Summary Row */}
+      {/* Summary stats */}
       {isLoadingStats ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(canInviteMembers ? 4 : 2)].map((_, i) => (
-             <div key={i} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse h-32"></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: canInviteMembers ? 4 : 2 }).map((_, index) => (
+            <div key={index} className="h-[104px] animate-pulse rounded-xl border border-subtle bg-panel" />
           ))}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statsToRender.map((stat) => (
-            <div key={stat.label} className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-slate-500 text-sm font-medium">{stat.label}</span>
-                <span className={`material-symbols-outlined ${stat.color} ${stat.bg} p-1.5 rounded-lg`}>{stat.icon}</span>
-              </div>
-              <div className="flex items-end gap-2">
-                <p className="text-3xl font-bold">{stat.value} {stat.unit && <span className="text-lg font-normal text-slate-500">{stat.unit}</span>}</p>
-                <span className={`${stat.change.startsWith('+') ? 'text-emerald-500' : stat.change.startsWith('-') ? 'text-rose-500' : 'text-slate-500'} text-xs font-semibold mb-1.5`}>{stat.change}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Role-Specific Feature Modules */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Main Feed/Lists */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* Owner Exclusives: Audit Logs */}
-          {canViewAuditLogs && (
-            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-              <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-xl">policy</span>
-                  <h2 className="text-lg font-bold">Recent Audit Logs</h2>
+      ) : statsToRender.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {statsToRender.map((stat) => {
+            const Icon = statIcon(stat.label);
+            const positive = stat.change.startsWith('+');
+            const negative = stat.change.startsWith('-');
+            return (
+              <Card key={stat.label} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[12px] font-medium text-ink-muted">{stat.label}</p>
+                  <span className="flex size-7 items-center justify-center rounded-md border border-subtle bg-elevated text-ink-muted">
+                    <Icon className="size-3.5" />
+                  </span>
                 </div>
-                <button className="text-xs text-primary font-medium hover:underline">View Security Center</button>
+                <div className="mt-3 flex items-end gap-2">
+                  <p className="text-[26px] font-semibold leading-none tracking-tight text-ink tnum">
+                    {stat.value}
+                    {stat.unit && <span className="ml-1 text-sm font-normal text-ink-muted">{stat.unit}</span>}
+                  </p>
+                  <span
+                    className={`mb-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium ${
+                      positive ? 'text-emerald-300' : negative ? 'text-red-300' : 'text-ink-muted'
+                    }`}
+                  >
+                    {(positive || negative) && <TrendingUpIcon className={`size-3 ${negative ? 'rotate-180' : ''}`} />}
+                    {stat.change}
+                  </span>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Activity */}
+          <Card>
+            <div className="flex items-center justify-between border-b border-subtle px-5 py-3.5">
+              <div className="flex items-center gap-2">
+                <TargetIcon className="size-4 text-ink-muted" />
+                <h2 className="text-[13px] font-semibold text-ink">Recent activity</h2>
               </div>
-              <div className="p-6">
-                <ul className="text-sm space-y-4">
-                  {isLoadingAudit ? (
-                    <div className="space-y-3 animate-pulse">
-                      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-3/4"></div>
-                      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/2"></div>
-                    </div>
-                  ) : auditLogs && auditLogs.length > 0 ? (
-                    auditLogs.map((log: any) => (
-                      <li key={log.id} className="flex items-start justify-between">
-                        <div>
-                          <p className="text-slate-800 dark:text-slate-200">
-                            {(() => {
-                              const actor = log.user?.name || log.user?.email || 'System';
-                              const meta = log.metadata || {};
-                              switch (log.action) {
-                                case 'MEMBER_INVITED': return <><span className="font-bold">{actor}</span> invited <span className="text-primary">{meta.invitedEmail}</span> as <span className="font-black italic text-[10px] bg-primary/10 px-1.5 py-0.5 rounded ml-1">{meta.role}</span></>;
-                                case 'MEMBER_JOINED': return <><span className="font-bold">{actor}</span> joined the organization via invitation</>;
-                                case 'MEMBER_ROLE_UPDATED': return <><span className="font-bold">{actor}</span> changed <span className="text-primary">{meta.targetEmail}'s</span> role to <span className="font-black italic text-[10px] bg-primary/10 px-1.5 py-0.5 rounded ml-1">{meta.newRole}</span></>;
-                                case 'MEMBER_REMOVED': return <><span className="font-bold">{actor}</span> removed <span className="text-primary font-bold">{meta.targetEmail}</span> from the workspace</>;
-                                case 'PROJECT_CREATED': return <><span className="font-bold">{actor}</span> created project <span className="font-black italic text-primary">{meta.name}</span></>;
-                                case 'PROJECT_DELETED': return <><span className="font-bold">{actor}</span> deleted project <span className="italic">{meta.name}</span></>;
-                                case 'OWNERSHIP_TRANSFERRED': return <><span className="font-bold">{actor}</span> transferred organization ownership</>;
-                                default: return <><span className="font-bold">{actor}</span> performed <span className="italic">{log.action.replace(/_/g, ' ')}</span></>;
-                              }
-                            })()}
+              <Link
+                to="/dashboard/issues"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-300 transition-colors hover:text-brand-200"
+              >
+                View issues
+                <ChevronRightIcon className="size-3" />
+              </Link>
+            </div>
+            <div className="p-5">
+              {isLoadingActivity ? (
+                <div className="space-y-4">
+                  <div className="h-9 animate-pulse rounded-md bg-elevated" />
+                  <div className="h-9 animate-pulse rounded-md bg-elevated" />
+                  <div className="h-9 animate-pulse rounded-md bg-elevated" />
+                </div>
+              ) : activityFeed && activityFeed.length > 0 ? (
+                <ol className="relative space-y-5 before:absolute before:inset-y-1 before:left-[15px] before:w-px before:bg-subtle">
+                  {activityFeed.slice(0, 8).map((activity) => {
+                    const Icon = ACTIVITY_ICONS[activity.action] || RocketIcon;
+                    return (
+                      <li key={activity.id} className="relative flex gap-3">
+                        <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-subtle bg-elevated text-ink-muted">
+                          <Icon className="size-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <p className="text-[12.5px] leading-relaxed text-ink-secondary">
+                            <span className="font-medium text-ink">
+                              {activity.user?.name || activity.user?.email}
+                            </span>{' '}
+                            {describeActivity(activity)}
                           </p>
-                          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
-                            {new Date(log.createdAt).toLocaleDateString()} at {new Date(log.createdAt).toLocaleTimeString()}
+                          <p className="mt-1 text-[11px] text-ink-disabled">
+                            {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
                           </p>
                         </div>
                       </li>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-500 italic">No recent administrative actions recorded.</p>
-                  )}
-                </ul>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-[12.5px] font-medium text-ink-secondary">No activity yet</p>
+                  <p className="mt-1 text-[11.5px] text-ink-muted">Create an issue or invite a teammate to get started.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Audit logs */}
+          {canViewAuditLogs && (
+            <Card>
+              <div className="flex items-center gap-2 border-b border-subtle px-5 py-3.5">
+                <ShieldIcon className="size-4 text-ink-muted" />
+                <h2 className="text-[13px] font-semibold text-ink">Audit log</h2>
+                <Badge tone="neutral" className="ml-1">
+                  Owner
+                </Badge>
               </div>
-            </div>
-          )}
-
-          {/* Admin Exclusives: Pending Invites */}
-          {isAdmin && !isOwner && (
-             <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-             <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-               <div className="flex items-center gap-2">
-                 <span className="material-symbols-outlined text-emerald-500 text-xl">mail</span>
-                 <h2 className="text-lg font-bold">Pending Invitations</h2>
-               </div>
-               <button className="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-md font-medium hover:bg-emerald-600 transition-colors">Invite Team</button>
-             </div>
-             <div className="p-6">
-               <ul className="text-sm space-y-4">
-                 <li className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-                   <div className="flex items-center gap-3">
-                      <div className="size-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">JW</div>
-                      <div>
-                        <p className="font-medium">jordan.wu@external.com</p>
-                        <p className="text-xs text-amber-500">Pending Acceptance</p>
-                      </div>
-                   </div>
-                   <button className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors">Resend</button>
-                 </li>
-               </ul>
-             </div>
-           </div>
-          )}
-
-          {/* Activity Feed (Visible to all) */}
-          <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Activity Feed</h2>
-              <button className="text-xs text-primary font-medium">View all</button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
-                {isLoadingActivity ? (
-                  <div className="animate-pulse space-y-4">
-                    <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
-                    <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+              <div className="p-5">
+                {isLoadingAudit ? (
+                  <div className="space-y-3">
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-elevated" />
+                    <div className="h-4 w-1/2 animate-pulse rounded bg-elevated" />
                   </div>
-                ) : activityFeed && activityFeed.length > 0 ? (
-                  activityFeed.map((activity, index) => (
-                    <div key={activity.id} className="relative pl-10 pb-8">
-                      <div className="absolute left-0 top-0 size-6 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center z-10">
-                        <span className="material-symbols-outlined text-sm">
-                          {activity.action === 'ISSUE_CREATED' ? 'add_task' :
-                           activity.action === 'ISSUE_UPDATED' ? 'update' :
-                           activity.action === 'ISSUE_DELETED' ? 'delete' :
-                           activity.action === 'COMMENT_ADDED' ? 'chat_bubble' :
-                           activity.action === 'MEMBER_INVITED' ? 'person_add' :
-                           activity.action === 'MEMBER_JOINED' ? 'how_to_reg' :
-                           activity.action === 'PROJECT_CREATED' ? 'create_new_folder' :
-                           'rocket_launch'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">
-                            <span className="text-primary cursor-pointer">{activity.user?.name || activity.user?.email}</span> {activity.action.replace('_', ' ').toLowerCase()}
+                ) : auditLogs && auditLogs.length > 0 ? (
+                  <ul className="divide-y divide-subtle/70">
+                    {auditLogs.slice(0, 6).map((log: any) => {
+                      const actor = log.user?.name || log.user?.email || 'System';
+                      const meta = log.metadata || {};
+                      return (
+                        <li key={log.id} className="flex items-start justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+                          <p className="text-[12.5px] leading-relaxed text-ink-secondary">
+                            <span className="font-medium text-ink">{actor}</span>{' '}
+                            {log.action === 'MEMBER_INVITED' && (
+                              <>invited <span className="text-brand-300">{meta.invitedEmail}</span> as {meta.role?.toLowerCase()}</>
+                            )}
+                            {log.action === 'MEMBER_JOINED' && <>joined the workspace</>}
+                            {log.action === 'MEMBER_ROLE_UPDATED' && (
+                              <>changed <span className="text-brand-300">{meta.targetEmail}</span> to {meta.newRole?.toLowerCase()}</>
+                            )}
+                            {log.action === 'MEMBER_REMOVED' && <>removed <span className="text-brand-300">{meta.targetEmail}</span></>}
+                            {log.action === 'PROJECT_CREATED' && <>created project <span className="text-brand-300">{meta.name}</span></>}
+                            {log.action === 'PROJECT_DELETED' && <>deleted project {meta.name}</>}
+                            {log.action === 'OWNERSHIP_TRANSFERRED' && <>transferred ownership</>}
+                            {![
+                              'MEMBER_INVITED',
+                              'MEMBER_JOINED',
+                              'MEMBER_ROLE_UPDATED',
+                              'MEMBER_REMOVED',
+                              'PROJECT_CREATED',
+                              'PROJECT_DELETED',
+                              'OWNERSHIP_TRANSFERRED',
+                            ].includes(log.action) && <>{log.action.replace(/_/g, ' ').toLowerCase()}</>}
                           </p>
-                        </div>
-                        {activity.metadata && (
-                           <p className="text-xs text-slate-500">{JSON.stringify(activity.metadata)}</p>
-                        )}
-                        <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
-                          {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                          <span className="shrink-0 text-[10.5px] text-ink-disabled">
+                            {new Date(log.createdAt).toLocaleDateString()}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ) : (
-                  <div className="pl-10 pb-2 text-sm text-slate-500">No recent activity.</div>
+                  <p className="text-[12px] text-ink-muted">No administrative actions recorded yet.</p>
                 )}
               </div>
-            </div>
-          </div>
+            </Card>
+          )}
+
+          {/* Pending invitations */}
+          {canInviteMembers && (
+            <Card>
+              <div className="flex items-center justify-between border-b border-subtle px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <MailIcon className="size-4 text-ink-muted" />
+                  <h2 className="text-[13px] font-semibold text-ink">Pending invitations</h2>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/team')}>
+                  Manage
+                </Button>
+              </div>
+              <div className="p-5">
+                {pendingInvites.length === 0 ? (
+                  <p className="text-[12px] text-ink-muted">
+                    No pending invitations. Invite a teammate from the Team page.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-subtle/70">
+                    {pendingInvites.slice(0, 5).map((invite: any) => (
+                      <li key={invite.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <Avatar name={invite.email} size="xs" />
+                          <div className="min-w-0">
+                            <p className="truncate text-[12.5px] font-medium text-ink">{invite.email}</p>
+                            <p className="text-[11px] capitalize text-ink-muted">{invite.role.toLowerCase()}</p>
+                          </div>
+                        </div>
+                        <Badge tone="warning" dot>
+                          Pending
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Card>
+          )}
         </div>
 
-        {/* Side Cards */}
-        <div className="space-y-8">
-          
-          {/* Owner Exclusives: Billing */}
-          {canManageBilling && (
-            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">credit_card</span>
-                Billing Dashboard
-              </h3>
-              <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-4">
-                <p className="text-emerald-600 dark:text-emerald-400 font-bold">Enterprise Plan</p>
-                <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Total Seats</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">12 / 50</span>
-                </div>
+        {/* Side column */}
+        <div className="space-y-5">
+          <Card className="p-5">
+            <div className="flex items-center gap-2">
+              <FolderKanbanIcon className="size-4 text-ink-muted" />
+              <h3 className="text-[13px] font-semibold text-ink">Workspace</h3>
+            </div>
+            <div className="mt-4 rounded-lg border border-subtle bg-canvas/50 p-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[12.5px] font-medium text-ink">Free plan</p>
+                <Badge tone="brand" dot>
+                  Active
+                </Badge>
               </div>
-              <button className="w-full text-center text-sm font-semibold text-primary hover:text-primary/80 transition-colors">Manage Subscription & Invoices</button>
+              <div className="mt-3 flex items-center justify-between border-t border-subtle pt-3 text-[12px]">
+                <span className="text-ink-muted">Members</span>
+                <span className="font-medium text-ink tnum">{members.length}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[12px]">
+                <span className="text-ink-muted">Your role</span>
+                <span className="font-medium text-ink">{roleLabel}</span>
+              </div>
             </div>
-          )}
+            {canManageBilling && (
+              <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => navigate('/dashboard/team')}>
+                Manage people and roles
+              </Button>
+            )}
+          </Card>
 
-          {/* Admin & Owner: Team Management Shortcuts */}
-          {canInviteMembers && (
-            <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">folder_managed</span>
-                Workspace Control
-              </h3>
-              <ul className="space-y-3">
-                <li>
-                  <a href="#" className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-base">domain_add</span> Create New Project
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-base">group_add</span> Invite Members
-                  </a>
-                </li>
-              </ul>
-            </div>
-          )}
-
-          {/* All Roles: Quick Links */}
-          <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Quick Resources</h3>
-            <ul className="space-y-3">
+          <Card className="p-5">
+            <h3 className="text-[13px] font-semibold text-ink">Quick links</h3>
+            <ul className="mt-3 space-y-1">
               {[
-                { label: 'Documentation', icon: 'menu_book' },
-                { label: 'My Assigned Issues', icon: 'assignment_ind' },
-                { label: 'API Tokens', icon: 'api' },
-              ].map((link) => (
-                <li key={link.label}>
-                  <a href="#" className="text-sm flex items-center gap-2 hover:underline decoration-primary">
-                    <span className="material-symbols-outlined text-base">{link.icon}</span>
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+                { label: 'Issue board', to: '/dashboard/issues', icon: InboxIcon },
+                { label: 'Projects', to: '/dashboard/projects', icon: FolderKanbanIcon },
+                { label: 'Team', to: '/dashboard/team', icon: UsersIcon },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.to}>
+                    <Link
+                      to={item.to}
+                      className="flex items-center gap-2.5 rounded-md px-2 py-2 text-[12.5px] font-medium text-ink-muted transition-colors hover:bg-hover hover:text-ink"
+                    >
+                      <Icon className="size-4 text-ink-disabled" />
+                      {item.label}
+                      <ChevronRightIcon className="ml-auto size-3.5 text-ink-disabled" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
-          </div>
+          </Card>
 
-          {/* Owner Exclusives: Danger Zone */}
           {isOwner && (
-            <div className="bg-rose-500/5 rounded-xl border border-rose-500/20 p-6 shadow-sm">
-               <h3 className="text-sm font-bold uppercase tracking-wider text-rose-500 mb-2 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">warning</span>
-                Danger Zone
+            <Card className="border-danger/25 bg-danger/[0.03] p-5">
+              <h3 className="flex items-center gap-2 text-[13px] font-semibold text-red-300">
+                <ShieldIcon className="size-4" />
+                Danger zone
               </h3>
-              <p className="text-xs text-rose-600/70 mb-4 leading-relaxed">Permanently delete this organization, along with all projects, issues, and users.</p>
-              <button className="text-xs font-semibold bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition-colors w-full">Delete Workspace</button>
-            </div>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-muted">
+                Deleting this workspace removes all projects, issues, and members permanently.
+              </p>
+              <Button variant="danger-outline" size="sm" className="mt-3 w-full" onClick={() => setIsDeleteOpen(true)}>
+                Delete workspace
+              </Button>
+            </Card>
           )}
-
         </div>
       </div>
+
+      <CreateOrgModal
+        isOpen={isCreateOrgOpen}
+        onClose={() => setIsCreateOrgOpen(false)}
+        onSuccess={(org) => setCurrentOrg(org)}
+      />
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        title="Delete workspace"
+        message={`Delete "${currentOrg.name}"? This permanently removes every project, issue, and member.`}
+        confirmText="Delete workspace"
+        type="danger"
+        isLoading={deleteOrganization.isPending}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeleteWorkspace}
+      />
     </div>
   );
 }

@@ -65,7 +65,15 @@ export class AuthController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   getMe(@CurrentUser() user: any) {
-    return user;
+    // Never expose password hashes, OTPs or refresh tokens to the client.
+    const {
+      password,
+      refreshToken,
+      resetOtp,
+      resetOtpExpires,
+      ...safeUser
+    } = user;
+    return safeUser;
   }
 
   @ApiBearerAuth()

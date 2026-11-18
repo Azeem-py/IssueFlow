@@ -1,26 +1,31 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  FolderKanbanIcon,
+  PlusIcon,
+  useToast,
+} from '@issueflow/ui';
+import { IssueStatus, IIssue } from '@issueflow/types';
 import { useProjectQueries } from '../hooks/useProjectQueries';
 import { useIssueQueries } from '../hooks/useIssueQueries';
-import { IssueStatus, IssuePriority } from '@issueflow/types';
+import { usePermissions } from '../hooks/usePermissions';
+import { KanbanBoard } from '../components/KanbanBoard';
 import { QuickAddModal } from '../components/QuickAddModal';
-
-const COLUMNS: { id: IssueStatus; label: string; color: string }[] = [
-  { id: IssueStatus.BACKLOG, label: 'Backlog', color: 'bg-slate-400' },
-  { id: IssueStatus.TODO, label: 'To Do', color: 'bg-orange-500' },
-  { id: IssueStatus.IN_PROGRESS, label: 'In Progress', color: 'bg-primary' },
-  { id: IssueStatus.REVIEW, label: 'Review', color: 'bg-blue-500' },
-  { id: IssueStatus.DONE, label: 'Done', color: 'bg-emerald-500' },
-];
+import { BOARD_COLUMNS } from '../lib/issueMeta';
 
 export function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const { useProject } = useProjectQueries();
-  const { useIssues } = useIssueQueries();
-  
+  const { useIssues, updateIssue } = useIssueQueries();
+  const { canCreateIssues, canEditOwnIssues } = usePermissions();
+  const { toast } = useToast();
+
   const { data: project, isLoading: isProjectLoading } = useProject(id);
   const { data: issues = [], isLoading: isIssuesLoading } = useIssues({ projectId: id });
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<IssueStatus | undefined>();
 
@@ -29,131 +34,147 @@ export function ProjectDetails() {
     setIsModalOpen(true);
   };
 
-  const getPriorityColor = (priority: IssuePriority) => {
-    switch (priority) {
-      case IssuePriority.LOW: return 'bg-blue-400';
-      case IssuePriority.MEDIUM: return 'bg-primary';
-      case IssuePriority.HIGH: return 'bg-orange-500';
-      case IssuePriority.URGENT: return 'bg-rose-500';
-      default: return 'bg-slate-400';
-    }
+  const handleMoveIssue = (issue: IIssue, status: IssueStatus) => {
+    updateIssue.mutate(
+      { id: issue.id, status },
+      {
+        onError: () =>
+          toast({
+            tone: 'error',
+            title: 'Could not move issue',
+            description: 'The issue was restored to its previous column. Try again.',
+          }),
+      },
+    );
   };
 
   if (isProjectLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-5">
+        <div className="h-20 animate-pulse rounded-xl border border-subtle bg-panel" />
+        <div className="flex gap-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-[420px] w-[278px] shrink-0 animate-pulse rounded-xl border border-subtle bg-panel/60" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-bold">Project not found</h2>
-        <Link to="/projects" className="text-primary hover:underline mt-4 inline-block">Back to Projects</Link>
-      </div>
+      <EmptyState
+        icon={<FolderKanbanIcon />}
+        title="Project not found"
+        description="This project may have been deleted, or you may not have access to it."
+        action={
+          <Link
+            to="/dashboard/projects"
+            className="inline-flex h-9 items-center rounded-md border border-subtle bg-elevated px-3.5 text-sm font-medium text-ink transition-colors hover:border-line hover:bg-hover"
+          >
+            Back to projects
+          </Link>
+        }
+        className="mt-10"
+      />
     );
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Project Header */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
+    <div className="space-y-5">
+      {/* Project header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3.5">
           {project.logoUrl ? (
-            <div className="size-12 md:size-16 rounded-xl md:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
-              <img src={project.logoUrl} alt={project.name} className="size-full object-cover" />
-            </div>
+            <img
+              src={project.logoUrl}
+              alt=""
+              className="size-11 shrink-0 rounded-lg border border-subtle object-cover"
+            />
           ) : (
-            <div className="size-12 md:size-16 rounded-xl md:rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-lg md:text-xl shrink-0">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-brand-500/25 bg-brand-500/10 text-[13px] font-semibold text-brand-300">
               {project.key}
-            </div>
+            </span>
           )}
+
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-               <Link to="/dashboard/projects" className="text-[10px] font-black text-slate-400 hover:text-primary transition-colors uppercase tracking-widest truncate">Projects</Link>
-               <span className="text-slate-400 text-[10px]">/</span>
-               <span className="text-[10px] font-black text-primary uppercase tracking-widest truncate">{project.key}</span>
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+              <Link to="/dashboard/projects" className="transition-colors hover:text-ink">
+                Projects
+              </Link>
+              <span aria-hidden="true" className="text-ink-disabled">/</span>
+              <span className="font-mono text-ink-secondary">{project.key}</span>
+            </nav>
+            <h1 className="mt-1 truncate text-[22px] font-semibold tracking-tight text-ink md:text-[24px]">
+              {project.name}
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ink-muted">
+              <span>{issues.length} {issues.length === 1 ? 'issue' : 'issues'}</span>
+              <span aria-hidden="true" className="text-ink-disabled">·</span>
+              <span>Board</span>
+              <Badge tone="neutral" className="ml-0.5">
+                {project.key}
+              </Badge>
             </div>
-            <h1 className="text-xl md:text-3xl font-black tracking-tighter uppercase">{project.name}</h1>
           </div>
         </div>
-        <button 
-          onClick={() => openCreateModal()}
-          className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <span className="material-symbols-outlined text-sm md:text-lg">add</span>
-          Create Issue
-        </button>
+
+        {canCreateIssues && (
+          <Button onClick={() => openCreateModal()} icon={<PlusIcon className="size-4" />}>
+            New issue
+          </Button>
+        )}
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar flex-1 min-h-0">
-        {COLUMNS.map((column) => {
-          const columnIssues = issues.filter(i => i.status === column.id);
-          
+      {/* Status summary */}
+      <div className="flex flex-wrap items-center gap-2">
+        {BOARD_COLUMNS.map((column) => {
+          const count = issues.filter((issue) => issue.status === column.id).length;
           return (
-            <div key={column.id} className="w-80 flex flex-col gap-4 flex-shrink-0">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold dark:text-slate-200 uppercase tracking-wider">{column.label}</span>
-                  <span className="bg-slate-200 dark:bg-card-dark px-2 py-0.5 rounded text-[10px] font-bold text-slate-500">{columnIssues.length}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 overflow-y-auto pr-1 custom-scrollbar">
-                {isIssuesLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark animate-pulse h-32"></div>
-                  ))
-                ) : (
-                  columnIssues.map((issue) => (
-                    <Link 
-                      key={issue.id} 
-                      to={`/dashboard/issues/${issue.id}`}
-                      className={`bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm hover:border-primary/50 transition-all group cursor-pointer block ${issue.priority === IssuePriority.URGENT ? 'border-l-4 border-l-rose-500' : ''}`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="font-mono text-[10px] text-slate-400 font-bold">{project.key}-{issue.shortId.split('-').pop()}</span>
-                        <div className={`size-2 rounded-full ${getPriorityColor(issue.priority)} shadow-sm`}></div>
-                      </div>
-                      <h3 className="text-sm font-medium leading-relaxed dark:text-slate-200 mb-4 line-clamp-2">{issue.title}</h3>
-                      <div className="flex items-center justify-between mt-auto">
-                        <div className="flex items-center gap-2">
-                           {(issue as any).assignee ? (
-                             <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary border border-primary/10">
-                               {(issue as any).assignee.name?.charAt(0) || (issue as any).assignee.email.charAt(0)}
-                             </div>
-                           ) : (
-                             <div className="size-6 rounded-full border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center">
-                               <span className="material-symbols-outlined text-[14px] text-slate-400">person_add</span>
-                             </div>
-                           )}
-                        </div>
-                        <span className="text-[10px] font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
-                          {new Date(issue.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                )}
-                
-                <button 
-                  onClick={() => openCreateModal(column.id)}
-                  className="h-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:border-primary/50 hover:text-primary transition-colors group"
-                >
-                  <span className="material-symbols-outlined group-hover:scale-110 transition-transform text-xl">add</span>
-                </button>
-              </div>
-            </div>
+            <span
+              key={column.id}
+              className="inline-flex items-center gap-1.5 rounded-md border border-subtle bg-panel px-2.5 py-1 text-[11px] text-ink-muted"
+            >
+              <span aria-hidden="true" className={`size-1.5 rounded-full ${column.dot}`} />
+              {column.label}
+              <span className="font-medium text-ink-secondary tnum">{count}</span>
+            </span>
           );
         })}
       </div>
 
-      <QuickAddModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      {!isIssuesLoading && issues.length === 0 && (
+        <EmptyState
+          icon={<FolderKanbanIcon />}
+          title="This project has no issues yet"
+          description={
+            canCreateIssues
+              ? 'Add the first issue to get this board moving.'
+              : 'An admin has not created any issues in this project yet.'
+          }
+          action={
+            canCreateIssues ? (
+              <Button size="sm" onClick={() => openCreateModal()}>
+                Create first issue
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
+      <KanbanBoard
+        issues={issues}
+        loading={isIssuesLoading}
+        canEdit={canEditOwnIssues}
+        canCreate={canCreateIssues}
+        onCreateIssue={openCreateModal}
+        onMoveIssue={handleMoveIssue}
+        projectKey={project.key}
+      />
+
+      <QuickAddModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         initialStatus={selectedStatus}
         initialProjectId={project.id}
       />

@@ -1,12 +1,23 @@
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { IssueStatus, IssuePriority } from '@issueflow/types';
+import {
+  Alert,
+  Button,
+  Dialog,
+  Input,
+  Select,
+  Textarea,
+  useToast,
+} from '@issueflow/ui';
 import { useProjectQueries } from '../hooks/useProjectQueries';
 import { useIssueQueries } from '../hooks/useIssueQueries';
 import { useOrgQueries } from '../hooks/useOrgQueries';
 import { useAuth } from '../contexts/AuthContext';
-import { IssueStatus, IssuePriority } from '@issueflow/types';
+import { priorityLabel, statusLabel } from '../lib/issueMeta';
 
 const issueSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -26,33 +37,44 @@ interface QuickAddModalProps {
   initialProjectId?: string;
 }
 
+const PRIORITY_DOT: Record<string, string> = {
+  LOW: 'bg-slate-400',
+  MEDIUM: 'bg-amber-400',
+  HIGH: 'bg-orange-400',
+  URGENT: 'bg-red-400',
+};
+
 export function QuickAddModal({ isOpen, onClose, initialStatus, initialProjectId }: QuickAddModalProps) {
   const { currentOrg } = useAuth();
   const { useProjects } = useProjectQueries();
-  const { data: projects } = useProjects();
+  const { data: projects, isLoading: isLoadingProjects } = useProjects();
   const { createIssue } = useIssueQueries();
   const { useMembers } = useOrgQueries();
   const { data: members } = useMembers();
+  const { toast } = useToast();
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, watch } = useForm<IssueFormValues>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+    setValue,
+    watch,
+  } = useForm<IssueFormValues>({
     resolver: zodResolver(issueSchema),
     defaultValues: {
       status: initialStatus || IssueStatus.BACKLOG,
       priority: IssuePriority.MEDIUM,
       projectId: initialProjectId || '',
-    }
+    },
   });
 
   useEffect(() => {
-    if (initialStatus) {
-      setValue('status', initialStatus);
-    }
+    if (initialStatus) setValue('status', initialStatus);
   }, [initialStatus, setValue]);
 
   useEffect(() => {
-    if (initialProjectId) {
-      setValue('projectId', initialProjectId);
-    }
+    if (initialProjectId) setValue('projectId', initialProjectId);
   }, [initialProjectId, setValue]);
 
   useEffect(() => {
@@ -68,149 +90,145 @@ export function QuickAddModal({ isOpen, onClose, initialStatus, initialProjectId
   const onSubmit = async (values: IssueFormValues) => {
     if (!currentOrg?.id) return;
     try {
-      await createIssue.mutateAsync({
+      const created = await createIssue.mutateAsync({
         ...values,
+        assigneeId: values.assigneeId || undefined,
         organizationId: currentOrg.id,
+      });
+      toast({
+        tone: 'success',
+        title: 'Issue created',
+        description: created?.shortId ? `${created.shortId} — ${values.title}` : values.title,
       });
       onClose();
     } catch (error) {
-      console.error('Failed to create issue:', error);
+      toast({
+        tone: 'error',
+        title: 'Could not create issue',
+        description: 'Your draft is preserved. Check the form and try again.',
+      });
     }
   };
 
   const selectedPriority = watch('priority');
-
-  if (!isOpen) return null;
+  const titleValue = watch('title');
+  const projectValue = watch('projectId');
+  const hasProjects = Boolean(projects && projects.length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-background-dark/80 backdrop-blur-sm" onClick={onClose}></div>
-      
-      <div className="relative w-full max-w-4xl bg-white dark:bg-[#1a1933] rounded-xl shadow-2xl border border-slate-200 dark:border-primary/20 overflow-hidden">
-        <header className="flex items-center justify-between px-8 py-4 border-b border-slate-200 dark:border-primary/10">
-          <div className="flex items-center gap-3">
-            <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-xl">add_task</span>
-            </div>
-            <h2 className="text-xl font-bold tracking-tight">Quick-Add Issue</h2>
-          </div>
-          <button className="p-2 hover:bg-slate-100 dark:hover:bg-primary/20 rounded-lg transition-colors text-slate-500 dark:text-slate-400" onClick={onClose}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </header>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      title="Create issue"
+      description="Add the essentials now. You can refine details on the issue page."
+      size="lg"
+      footer={
+        <>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="quick-add-form"
+            size="sm"
+            loading={isSubmitting || createIssue.isPending}
+            disabled={!hasProjects || !titleValue?.trim() || !projectValue}
+          >
+            Create issue
+          </Button>
+        </>
+      }
+    >
+      <form id="quick-add-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {!isLoadingProjects && !hasProjects && (
+          <Alert
+            tone="warning"
+            title="Create a project first"
+            description="Issues live inside projects so they can get a short key."
+            action={
+              <Link
+                to="/dashboard/projects"
+                onClick={onClose}
+                className="text-[12px] font-medium text-brand-300 underline underline-offset-2 hover:text-brand-200"
+              >
+                Go to projects
+              </Link>
+            }
+          />
+        )}
 
-        <form className="p-8" onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-8">
-            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Issue Title</label>
-            <input 
-              {...register('title')}
-              className={`w-full bg-slate-50 dark:bg-[#111022] border ${errors.title ? 'border-rose-500' : 'border-slate-200 dark:border-[#333267]'} rounded-xl px-5 py-4 text-xl font-semibold focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#9392c9] text-slate-900 dark:text-slate-100`}
-              placeholder="e.g. Navigation bar is not responsive on mobile" 
-              type="text"
-              autoFocus
-            />
-            {errors.title && <p className="text-rose-500 text-xs mt-1">{errors.title.message}</p>}
-          </div>
+        <Input
+          label="Title"
+          required
+          autoFocus
+          placeholder="e.g. Navigation bar is not responsive on mobile"
+          error={errors.title?.message}
+          className="h-10 text-[14px]"
+          {...register('title')}
+        />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Description</label>
-                <textarea 
-                  {...register('description')}
-                  className="w-full bg-slate-50 dark:bg-[#111022] border border-slate-200 dark:border-[#333267] rounded-xl p-5 min-h-[150px] focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-[#9392c9] text-slate-900 dark:text-slate-100" 
-                  placeholder="Add detailed description..."
-                ></textarea>
-              </div>
+        <Textarea
+          label="Description"
+          placeholder="Add context, steps to reproduce, or acceptance criteria. Markdown is supported."
+          rows={5}
+          {...register('description')}
+        />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Project</label>
-                  <select 
-                    {...register('projectId')}
-                    className={`w-full bg-slate-50 dark:bg-[#111022] border ${errors.projectId ? 'border-rose-500' : 'border-slate-200 dark:border-[#333267]'} rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all cursor-pointer text-slate-900 dark:text-slate-100`}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select label="Project" required error={errors.projectId?.message} {...register('projectId')}>
+            <option value="">Select a project</option>
+            {projects?.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name} ({project.key})
+              </option>
+            ))}
+          </Select>
+
+          <Select label="Status" {...register('status')}>
+            {Object.values(IssueStatus).map((status) => (
+              <option key={status} value={status}>
+                {statusLabel(status)}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-ink-secondary">Priority</p>
+            <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Priority">
+              {(Object.values(IssuePriority) as IssuePriority[]).map((priority) => {
+                const active = selectedPriority === priority;
+                return (
+                  <button
+                    key={priority}
+                    type="button"
+                    onClick={() => setValue('priority', priority, { shouldDirty: true })}
+                    aria-pressed={active}
+                    className={`flex h-9 flex-col items-center justify-center gap-1 rounded-md border text-[10.5px] font-medium capitalize transition-colors ${
+                      active
+                        ? 'border-brand-500/50 bg-brand-500/10 text-brand-200'
+                        : 'border-subtle bg-canvas text-ink-muted hover:border-line hover:text-ink'
+                    }`}
                   >
-                    <option value="">Select Project</option>
-                    {projects?.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.key})</option>
-                    ))}
-                  </select>
-                  {errors.projectId && <p className="text-rose-500 text-xs mt-1">{errors.projectId.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Status</label>
-                  <select 
-                    {...register('status')}
-                    className="w-full bg-slate-50 dark:bg-[#111022] border border-slate-200 dark:border-[#333267] rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all cursor-pointer text-slate-900 dark:text-slate-100"
-                  >
-                    {Object.values(IssueStatus).map(status => (
-                      <option key={status} value={status}>{status.replace('_', ' ')}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Priority</label>
-                <div className="flex gap-2">
-                  {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => (
-                    <button 
-                      key={p}
-                      type="button"
-                      onClick={() => setValue('priority', p)}
-                      className={`flex-1 py-2 rounded-lg border transition-all text-[10px] font-bold flex flex-col items-center gap-1 group ${
-                        selectedPriority === p 
-                        ? 'border-2 border-primary bg-primary/10' 
-                        : 'border-slate-200 dark:border-[#333267] bg-slate-50 dark:bg-[#111022] hover:border-primary/50'
-                      }`}
-                    >
-                      <span className={`material-symbols-outlined text-base ${
-                        p === 'LOW' ? 'text-blue-400' : 
-                        p === 'MEDIUM' ? 'text-primary' : 
-                        p === 'HIGH' ? 'text-orange-500' : 'text-rose-500'
-                      }`}>
-                        {p === 'LOW' ? 'low_priority' : p === 'URGENT' ? 'emergency' : 'priority_high'}
-                      </span>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">Assignee</label>
-                <select 
-                  {...register('assigneeId')}
-                  className="w-full bg-slate-50 dark:bg-[#111022] border border-slate-200 dark:border-[#333267] rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all cursor-pointer text-slate-900 dark:text-slate-100"
-                >
-                  <option value="">Unassigned</option>
-                  {members?.map(member => (
-                    <option key={member.user.id} value={member.user.id}>
-                      {member.user.name || member.user.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <span aria-hidden="true" className={`size-1.5 rounded-full ${PRIORITY_DOT[priority]}`} />
+                    {priorityLabel(priority)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-end gap-4 pt-6 border-t border-slate-200 dark:border-primary/10">
-            <button className="px-6 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-primary/10 transition-colors" type="button" onClick={onClose}>
-              Cancel
-            </button>
-            <button 
-              className="px-10 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/25 hover:bg-primary/90 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0" 
-              type="submit"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Creating...' : 'Create Issue'}
-              <span className="material-symbols-outlined text-[20px]">send</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <Select label="Assignee" {...register('assigneeId')}>
+            <option value="">Unassigned</option>
+            {members?.map((member) => (
+              <option key={member.user.id} value={member.user.id}>
+                {member.user.name || member.user.email}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </form>
+    </Dialog>
   );
 }

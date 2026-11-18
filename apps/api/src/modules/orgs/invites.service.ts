@@ -16,28 +16,50 @@ export class InvitesService {
 
   async createInvite(orgId: string, inviterId: string, dto: CreateInviteInput) {
     const email = dto.email.toLowerCase();
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-    const [org, inviter, invite] = await Promise.all([
+    if (dto.role === UserRole.OWNER) {
+      throw new BadRequestException('You cannot invite a new owner. Transfer ownership instead.');
+    }
+
+    const [org, inviter] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id: orgId } }),
       this.prisma.user.findUnique({ where: { id: inviterId } }),
-      this.prisma.invitation.create({
-        data: {
-          email,
-          token,
-          role: dto.role as any,
-          organizationId: orgId,
-          inviterId,
-          expiresAt,
-        },
-      }),
     ]);
 
     if (!org || !inviter) {
       throw new NotFoundException('Organization or Inviter not found');
     }
+
+    // Don't invite someone who already belongs to the workspace.
+    const existingMember = await this.prisma.member.findFirst({
+      where: { organizationId: orgId, user: { email } },
+    });
+    if (existingMember) {
+      throw new BadRequestException('This user is already a member of the organization');
+    }
+
+    // Avoid duplicate pending invitations.
+    const pendingInvite = await this.prisma.invitation.findFirst({
+      where: { organizationId: orgId, email, acceptedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (pendingInvite) {
+      throw new BadRequestException('An invitation is already pending for this email');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+    const invite = await this.prisma.invitation.create({
+      data: {
+        email,
+        token,
+        role: dto.role as any,
+        organizationId: orgId,
+        inviterId,
+        expiresAt,
+      },
+    });
 
     // Send the email in background (don't wait for it if not necessary)
     this.emailService.sendInvitationEmail(email, org.name, inviter.name || inviter.email, token);
@@ -107,7 +129,7 @@ export class InvitesService {
 
   async getInvites(orgId: string) {
     return this.prisma.invitation.findMany({
-      where: { organizationId: orgId, acceptedAt: null },
+      where: { organizationId: orgId, acceptedAt: null, expiresAt: { gt: new Date() } },
       include: { inviter: { select: { name: true, email: true, avatarUrl: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -115,7 +137,7 @@ export class InvitesService {
 
   async getMyInvitations(email: string) {
     return this.prisma.invitation.findMany({
-      where: { email: email.toLowerCase(), acceptedAt: null },
+      where: { email: email.toLowerCase(), acceptedAt: null, expiresAt: { gt: new Date() } },
       include: { 
         organization: { select: { id: true, name: true, slug: true, logoUrl: true } },
         inviter: { select: { id: true, name: true, email: true, avatarUrl: true } }

@@ -12,22 +12,22 @@ export class DashboardService {
 
     // 1. My Tasks (Assigned to user in current org)
     const myTasksCount = await this.prisma.issue.count({
-      where: { organizationId: orgId, assigneeId: userId, status: { not: 'DONE' } },
+      where: { organizationId: orgId, assigneeId: userId, status: { notIn: ['DONE', 'CANCELED'] } },
     });
 
     // Previous period
     const myTasksCountPrev = await this.prisma.issue.count({
-      where: { organizationId: orgId, assigneeId: userId, status: { not: 'DONE' }, createdAt: { lt: sevenDaysAgo } },
+      where: { organizationId: orgId, assigneeId: userId, status: { notIn: ['DONE', 'CANCELED'] }, createdAt: { lt: sevenDaysAgo } },
     });
 
     // 2. High Priority (High/Urgent in current org)
     const highPriorityCount = await this.prisma.issue.count({
-      where: { organizationId: orgId, priority: { in: ['HIGH', 'URGENT'] }, status: { not: 'DONE' } },
+      where: { organizationId: orgId, priority: { in: ['HIGH', 'URGENT'] }, status: { notIn: ['DONE', 'CANCELED'] } },
     });
 
     // Previous period
     const highPriorityCountPrev = await this.prisma.issue.count({
-      where: { organizationId: orgId, priority: { in: ['HIGH', 'URGENT'] }, status: { not: 'DONE' }, createdAt: { lt: sevenDaysAgo } },
+      where: { organizationId: orgId, priority: { in: ['HIGH', 'URGENT'] }, status: { notIn: ['DONE', 'CANCELED'] }, createdAt: { lt: sevenDaysAgo } },
     });
 
     // 3. Team Velocity (Issues resolved in the last 7 days)
